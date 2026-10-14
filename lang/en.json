@@ -1,0 +1,27 @@
+{
+ "NCM": {
+  "Settings": {
+   "LangName": "Map language",
+   "LangHint": "Language of the map, the Agent phone and generated gigs. “Auto” follows Foundry's language (Russian if Foundry is in Russian, otherwise English).",
+   "LangAuto": "Auto (Foundry language)",
+   "ImageName": "Map image",
+   "ImageHint": "The Night City 2045 map file (without legend). Points are tied to this map's proportions.",
+   "WidthName": "Map width, km",
+   "WidthHint": "Used for distances and travel time.",
+   "ScanName": "Blue scanner line",
+   "ScanHint": "A blue scan line that sweeps down the map (each player sets their own).",
+   "ScanFull": "Bright",
+   "ScanSoft": "Dim",
+   "ScanOff": "Off",
+   "ScName": "Sync with Simple Calendar",
+   "ScHint": "The map clock follows the “Night City 2045” calendar in Simple Calendar (Foundry world time). The 📅 button on the map clock sets the calendar up.",
+   "AgentName": "Agent on startup",
+   "AgentHint": "The Agent phone opens automatically when you join the game (each player sets their own).",
+   "NotifyName": "Notify players about new gigs"
+  },
+  "Keys": {
+   "Agent": "Agent (phone)",
+   "Open": "Open the Night City map"
+  }
+ }
+}

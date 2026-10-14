@@ -1,0 +1,18 @@
+# Push a tag like v0.12.0 → a GitHub release with module.json and module.zip (what Foundry installs).
+name: Release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build module.zip
+        run: zip -r module.zip module.json README.md assets docs lang packs scripts styles -x "packs/*/LOCK"
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" module.json module.zip --title "$GITHUB_REF_NAME" --notes-file docs/CHANGELOG.md
