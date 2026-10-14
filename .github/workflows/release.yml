@@ -1,8 +1,11 @@
-# Push a tag like v0.12.0 → a GitHub release with module.json and module.zip (what Foundry installs).
+# When module.json's version changes on main, publish a GitHub release v<version>
+# with module.json and module.zip (what Foundry installs). Can also be run by hand.
 name: Release
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths: ["module.json", ".github/workflows/release.yml"]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
@@ -10,9 +13,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build module.zip
-        run: zip -r module.zip module.json README.md assets docs lang packs scripts styles -x "packs/*/LOCK"
-      - name: Publish release
+      - name: Read version
+        id: v
+        run: echo "tag=v$(jq -r .version module.json)" >> "$GITHUB_OUTPUT"
+      - name: Skip if this version is already released
+        id: exists
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" module.json module.zip --title "$GITHUB_REF_NAME" --notes-file docs/CHANGELOG.md
+        run: |
+          if gh release view "${{ steps.v.outputs.tag }}" >/dev/null 2>&1; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Build module.zip
+        if: steps.exists.outputs.skip == 'false'
+        run: zip -r module.zip module.json README.md assets docs lang packs scripts styles -x "packs/*/LOCK"
+      - name: Publish release
+        if: steps.exists.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ steps.v.outputs.tag }}" module.json module.zip --target "$GITHUB_SHA" --title "${{ steps.v.outputs.tag }}" --notes-file docs/CHANGELOG.md
