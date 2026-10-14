@@ -1,3 +1,8 @@
+## 0.12.1
+
+- Location art for all 65 places is now included (dossiers work out of the box).
+- Feature gallery in the README.
+
 ## 0.12.0 — English edition
 
 - Full English translation: map UI, Agent phone, encounters, gigs, shops, Night Markets, calendar, settings.

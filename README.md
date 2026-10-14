@@ -4,23 +4,63 @@
 
 An interactive Night City 2045 map for **Cyberpunk RED** in Foundry VTT. Open it with **Shift+M**, open the Agent phone with **Shift+A**.
 
-![Map](docs/screens/map.webp)
+![Plotting a route](docs/screens/16-route-plotting.gif)
 
-## What it does
+## Features
 
-- **65 locations and 21 districts** from the Cyberpunk RED Core rulebook, with street names from Cyberpunk 2077, the Combat Zones and the Hot Zone.
-- **Routes along real streets**: travel time on foot, by bike, car or AV, plus warnings when the route crosses a Combat Zone or the Hot Zone. Press *Travel* and the clock moves and the marker goes to the end of the route.
-- **Random encounters** by district threat level (day and night tables). If the *Night City Gang & Corp Mook Pack* is installed, the enemies are one click away from the scene.
-- **Fixer gigs**: a generator, a gig list, and “?” rumors on the map that players can take themselves.
-- **Shops and Night Markets**: procedural stock with Core rulebook price categories and a district markup. Night Markets only open at night and need Reputation and a fixer's referral to get in.
-- **“We are here”** for the whole crew and **“I am here”** for each player when the crew splits.
-- **The Agent**: a phone with gigs, messages between the GM and players, and your position.
-- **Clock and calendar**: works on its own or syncs with Simple Calendar (the “Night City 2045” calendar is set up with one button).
-- **NPC compendium**: 24 ready street NPCs (fixers, threats, specialists) in English and Russian.
+### The city
+65 locations and 21 districts from the Cyberpunk RED Core rulebook, street names from Cyberpunk 2077, the Combat Zones and the Hot Zone. Filter by category, search by name, set “We are here” for the crew and “I am here” for each player.
 
-| Shop | Night Market | Gigs | Encounter |
-|---|---|---|---|
-| ![Shop](docs/screens/shop.webp) | ![Market](docs/screens/market.webp) | ![Gigs](docs/screens/gigs.webp) | ![Encounter](docs/screens/encounter.webp) |
+![Overview](docs/screens/01-overview.webp)
+
+### Routes
+Click places on the map, and the route follows real streets around water and blocks. You get the distance, travel time on foot, by bike, car or AV, and a warning when the route crosses a Combat Zone or the Hot Zone. *Travel* moves the clock and the crew marker, *Encounters on the way* rolls what happens on the road, and you can show the route to every player.
+
+| Route | Encounters on the way |
+|---|---|
+| ![Route](docs/screens/02-route.webp) | ![Encounters on the way](docs/screens/03-route-encounters.webp) |
+
+### Places and dossiers
+Every location has a description, district, nearest street and gigs tied to it. 65 locations come with full-screen art dossiers you can show to all players at once.
+
+| Place | Dossier |
+|---|---|
+| ![Place](docs/screens/04-place.webp) | ![Dossier](docs/screens/05-dossier.webp) |
+
+### Encounters and districts
+Random encounters use day and night tables by district threat level. With the *Night City Gang & Corp Mook Pack* installed, the right enemies are one click away from the scene. A district card lists its threat level and every place in it.
+
+| Encounter | District |
+|---|---|
+| ![Encounter](docs/screens/06-encounter.webp) | ![District](docs/screens/07-district.webp) |
+
+### Shops and Night Markets
+Procedural shops with Core rulebook price categories and a district markup. Night Markets only open after 21:00; players need Reputation and a fixer's referral to get in.
+
+| Shop | Night Market |
+|---|---|
+| ![Shop](docs/screens/08-shop.webp) | ![Night Market](docs/screens/09-night-market.webp) |
+
+### Gigs and time
+A gig generator, a gig board, and “?” rumors on the map that players can take themselves. The clock runs on its own or syncs with Simple Calendar; at night the map goes dark.
+
+| Gigs | Night |
+|---|---|
+| ![Gigs](docs/screens/10-gigs.webp) | ![Night](docs/screens/11-night.webp) |
+
+### The Agent
+An in-game phone for every player: chats with the GM and fixers, available gigs, your position and the crew's.
+
+| Chats | Gigs | Position |
+|---|---|---|
+| ![Agent chats](docs/screens/12-agent-chats.webp) | ![Agent gigs](docs/screens/13-agent-gigs.webp) | ![Agent position](docs/screens/14-agent-me.webp) |
+
+### What players see
+Players get the same map without the GM tools: places, rumors, routes and their own markers.
+
+![Player view](docs/screens/15-player-view.webp)
+
+Also included: 24 ready-made street NPCs (fixers, threats, specialists) in an English and a Russian compendium.
 
 ## Install
 
