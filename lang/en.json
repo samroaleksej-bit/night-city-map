@@ -24,7 +24,9 @@
    "BuyHint": "Players buy from shops and Night Markets with the cart button. Eddies are taken from the character and the item goes on the sheet (Cyberpunk RED). Other systems get a chat note.",
    "BuyGm": "GM approves each purchase",
    "BuyAuto": "Instantly, no GM",
-   "BuyOff": "Off"
+   "BuyOff": "Off",
+   "RoadsName": "Road grid image",
+   "RoadsHint": "Grid the routes follow: white streets, gray land, black water, same proportions as the map. Empty — the module's Night City 2045 grid. Small fixes can be painted on the map with the Roads button."
   },
   "Keys": {
    "Agent": "Agent (phone)",

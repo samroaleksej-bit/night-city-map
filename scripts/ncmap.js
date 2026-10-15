@@ -42,7 +42,7 @@ const QSTATUS = { hidden: "Скрыт", offer: "Слух / предложени�
 
 /* ================================================================ настройки и состояние */
 
-const DEFAULT_STATE = { quests: [], pins: [], poi: {}, party: null, route: null, visited: [], shops: [], markets: [], night: false, clock: 0, players: {}, messages: [], encounters: [], encMode: "mix" };
+const DEFAULT_STATE = { quests: [], pins: [], poi: {}, party: null, route: null, visited: [], shops: [], markets: [], night: false, clock: 0, players: {}, messages: [], encounters: [], encMode: "mix", roads: [] };
 
 Hooks.once("init", () => {
   game.settings.register(MID, "lang", {
@@ -76,6 +76,9 @@ Hooks.once("init", () => {
   game.settings.register(MID, "shopBuy", {
     name: "NCM.Settings.BuyName", hint: "NCM.Settings.BuyHint", scope: "world", config: true, type: String, default: "gm",
     choices: { gm: "NCM.Settings.BuyGm", auto: "NCM.Settings.BuyAuto", off: "NCM.Settings.BuyOff" }
+  });
+  game.settings.register(MID, "roadsImage", {
+    name: "NCM.Settings.RoadsName", hint: "NCM.Settings.RoadsHint", scope: "world", config: true, type: String, filePicker: "image", default: "", requiresReload: true
   });
   game.settings.register(MID, "autoPlaced", { scope: "world", config: false, type: Boolean, default: false });
   game.settings.register(MID, "scAsked", { scope: "world", config: false, type: Boolean, default: false });
@@ -282,7 +285,30 @@ function zoneAt(x, y) {
 /* ================================================================ маршрут */
 
 /** Сетка проходимости (assets/roads.png): 255 — улица, 128 — суша, 0 — вода. */
-const GRID = { w: 0, h: 0, cell: null, ready: null };
+const GRID = { w: 0, h: 0, cell: null, base: null, ready: null, key: "" };
+const ROAD_VAL = { road: 1, land: 2, water: 0 };
+/** Правки мастера поверх сетки: мазки кистью «улица / суша / вода». */
+function applyRoadEdits(force = false) {
+  if (!GRID.base) return;
+  const strokes = state().roads ?? [], key = JSON.stringify(strokes).length + ":" + strokes.length;
+  if (!force && key === GRID.key) return false;
+  GRID.key = key; GRID.cell = GRID.base.slice();
+  const { w, h, cell } = GRID;
+  for (const st of strokes) {
+    const v = ROAD_VAL[st.t] ?? 1, r = Math.max(0.5, (st.w ?? 0.004) * w / 2), pts = st.p ?? [];
+    const dab = (fx, fy) => {
+      const cx = fx * (w - 1), cy = fy * (h - 1);
+      for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++)
+        if (x >= 0 && y >= 0 && x < w && y < h && (x - cx) ** 2 + (y - cy) ** 2 <= r * r) cell[y * w + x] = v;
+    };
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1] ?? a, n = Math.max(1, Math.ceil(Math.hypot((b[0] - a[0]) * w, (b[1] - a[1]) * h) / Math.max(1, r / 2)));
+      for (let k = 0; k <= n; k++) dab(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n);
+    }
+  }
+  return true;
+}
+const roadsSrc = () => { try { return game.settings.get(MID, "roadsImage") || `modules/${MID}/assets/roads.png`; } catch (e) { return `modules/${MID}/assets/roads.png`; } };
 function loadGrid() {
   GRID.ready ??= new Promise(res => {
     const img = new Image();
@@ -292,10 +318,11 @@ function loadGrid() {
       const d = ctx.getImageData(0, 0, img.width, img.height).data;
       GRID.w = img.width; GRID.h = img.height; GRID.cell = new Uint8Array(img.width * img.height);
       for (let i = 0; i < GRID.cell.length; i++) { const v = d[i * 4]; GRID.cell[i] = v > 200 ? 1 : v > 60 ? 2 : 0; }
+      GRID.base = GRID.cell.slice(); applyRoadEdits(true);
       res(true);
     };
     img.onerror = () => res(false);
-    img.src = `modules/${MID}/assets/roads.png`;
+    img.src = roadsSrc();
   });
   return GRID.ready;
 }
@@ -423,7 +450,51 @@ const UI = {
     setTimeout(() => el.remove(), 250);
   },
   rebuild() { if (this.el) { this.el.remove(); this.el = null; this.build(); } },
-  refresh() { if (this.el) { this.renderMarkers(); this.renderSvg(); this.renderPanel(); this.renderQuestList(); } },
+  refresh() {
+    if (applyRoadEdits() && this.el) { this.path = []; if (this.route.length > 1) this.recalc(); this.renderRoads(); }
+    if (this.el) { this.renderMarkers(); this.renderSvg(); this.renderPanel(); this.renderQuestList(); }
+  },
+  /** Сетка дорог поверх карты (только в режиме «Дороги»). */
+  renderRoads() {
+    const cv = this.el?.querySelector(".ncm-roads"); if (!cv) return;
+    const on = this.mode === "roads" && !!GRID.cell; cv.hidden = !on; if (!on) return;
+    const { w, h, cell } = GRID; cv.width = w; cv.height = h;
+    const ctx = cv.getContext("2d"), img = ctx.createImageData(w, h), d = img.data;
+    for (let i = 0; i < cell.length; i++) {
+      const c = cell[i] === 1 ? [0, 240, 255, 95] : cell[i] === 0 ? [30, 70, 255, 120] : [0, 0, 0, 0];
+      d.set(c, i * 4);
+    }
+    ctx.putImageData(img, 0, 0);
+  },
+  /** Предпросмотр мазка прямо на сетке, пока ведёшь мышью. */
+  drawStroke() {
+    const cv = this.el?.querySelector(".ncm-roads"), st = this.stroke; if (!cv || !st || cv.hidden) return;
+    const ctx = cv.getContext("2d"), { w, h } = GRID;
+    ctx.strokeStyle = st.t === "road" ? "rgba(0,240,255,.8)" : st.t === "water" ? "rgba(40,90,255,.7)" : "rgba(255,42,109,.7)";
+    ctx.lineWidth = Math.max(1, st.w * w); ctx.lineCap = "round"; ctx.lineJoin = "round";
+    const p = st.p, a = p.at(-2) ?? p.at(-1), b = p.at(-1);
+    ctx.beginPath(); ctx.moveTo(a[0] * (w - 1), a[1] * (h - 1)); ctx.lineTo(b[0] * (w - 1), b[1] * (h - 1)); ctx.stroke();
+  },
+  renderRoadsPanel(panel) {
+    const b = this.brush ??= { t: "road", w: 0.006 }, n = (state().roads ?? []).length;
+    panel.classList.add("on");
+    panel.innerHTML = `
+      <div class="ncm-p-head" style="--c:#00f0ff">
+        <span class="ncm-p-cat"><i class="fas fa-road"></i> ${T("Мастер")}</span>
+        <h2>${T("Дороги")}</h2>
+        <button class="ncm-p-x" data-act="mode-off"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="ncm-p-body">
+        <p class="ncm-muted">${T("Голубое — улицы, по ним идут маршруты. Синее — вода, через неё не пройти. Рисуй левой кнопкой, карту двигай правой.")}</p>
+        <div class="ncm-seg">${[["road", T("Улица")], ["land", T("Стереть улицу")], ["water", T("Вода")]].map(([k, l]) => `<button data-act="brush" data-t="${k}" class="${b.t === k ? "on" : ""}">${l}</button>`).join("")}</div>
+        <label class="ncm-range">${T("Ширина кисти")}<input type="range" data-brushw min="0.002" max="0.03" step="0.001" value="${b.w}"></label>
+        <p class="ncm-muted">${T("Своих мазков:")} ${n}</p>
+        <div class="ncm-p-acts"><button data-act="roads-undo" ${n ? "" : "disabled"}><i class="fas fa-rotate-left"></i> ${T("Отменить мазок")}</button>
+          <button class="danger" data-act="roads-clear" ${n ? "" : "disabled"}><i class="fas fa-trash"></i> ${T("Сбросить правки")}</button></div>
+        <p class="ncm-muted">${T("Своя карта? Нарисуй сетку целиком (белое — улицы, серое — суша, чёрное — вода) и укажи файл в настройках модуля.")}</p>
+      </div>`;
+    panel.querySelector("[data-brushw]")?.addEventListener("input", (ev) => { this.brush.w = Number(ev.target.value); });
+  },
 
   build(fromRect = null) {
     const el = document.createElement("div");
@@ -442,6 +513,7 @@ const UI = {
           <button data-act="gen-shops" title="${T("Расставить случайные магазины по городу")}"><i class="fas fa-cart-shopping"></i> ${T("Магазины")}</button>
           <button data-act="gen-markets" title="${T("Расставить Ночные рынки: репутация и фиксер для входа")}"><i class="fas fa-moon"></i> ${T("Ночные рынки")}</button>
           <button data-act="mode-pin" title="${T("Добавить свою точку")}"><i class="fas fa-location-dot"></i> ${T("Точка")}</button>
+          <button data-act="mode-roads" title="${T("Сетка дорог для маршрутов: показать и дорисовать")}"><i class="fas fa-road"></i> ${T("Дороги")}</button>
           <button data-act="places" title="${T("Места на карте: вернуть убранные, экспорт и импорт")}"><i class="fas fa-map-location-dot"></i> ${T("Места")}</button>
           <button data-act="share" title="${T("Открыть карту у всех игроков на этом месте")}"><i class="fas fa-satellite-dish"></i> ${T("Показать всем")}</button>` : ""}
         </div>
@@ -455,6 +527,7 @@ const UI = {
           <div class="ncm-nightfx" aria-hidden="true"></div>
           <svg class="ncm-svg" viewBox="0 0 1000 ${Math.round(1000 * aspect)}" preserveAspectRatio="none"></svg>
           <div class="ncm-streets"></div>
+          <canvas class="ncm-roads" hidden></canvas>
           <div class="ncm-labels"></div>
           <div class="ncm-markers"></div>
         </div>
@@ -607,7 +680,7 @@ const UI = {
   renderHint() {
     const h = this.el.querySelector(".ncm-hint");
     const msg = { route: T("Маршрут: кликайте по карте или точкам — каждый клик добавляет поворот. Тяните карту мышью, чтобы сдвинуть. Правый клик — убрать последнюю точку."),
-      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место.") }[this.mode];
+      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой.") }[this.mode];
     const st = state();
     const clr = this.mode === "party" && st.party ? `<button data-act="party-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>`
       : this.mode === "me" && st.players?.[game.user.id] ? `<button data-act="me-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>` : "";
@@ -615,11 +688,13 @@ const UI = {
     h.classList.toggle("on", !!msg);
     this.el.querySelectorAll(".ncm-modes button").forEach(b => b.classList.toggle("on", b.dataset.act === `mode-${this.mode}`));
     this.vp.classList.toggle("ncm-pick", this.mode !== "browse");
+    this.el.classList.toggle("ncm-roadsmode", this.mode === "roads");
   },
 
   /* ------------------------------------------------ панель справа */
   renderPanel() {
     const panel = this.el.querySelector(".ncm-panel");
+    if (this.mode === "roads") return this.renderRoadsPanel(panel);
     if (this.mode === "route" || (this.route.length > 1 && !this.sel)) return this.renderRoutePanel(panel);
     const p = this.sel && poiById(this.sel);
     if (!p) { panel.classList.remove("on"); panel.innerHTML = ""; return; }
@@ -944,17 +1019,23 @@ const UI = {
     vp.addEventListener("pointerdown", (ev) => {
       if (ev.button > 2 || ev.target.closest("button:not(.ncm-pin), .ncm-hint, .ncm-dist")) return;
       if (ev.button === 1) ev.preventDefault();
+      if (this.mode === "roads" && ev.button === 0 && isGM()) {
+        const f = this.toFrac(ev); this.stroke = { t: this.brush?.t ?? "road", w: this.brush?.w ?? 0.006, p: [[f.x, f.y]] };
+        vp.setPointerCapture(ev.pointerId); return this.drawStroke();
+      }
       this.drag = { x: ev.clientX, y: ev.clientY, vx: this.view.x, vy: this.view.y, moved: false, target: ev.target, btn: ev.button };
       vp.setPointerCapture(ev.pointerId);
     });
     vp.addEventListener("pointermove", (ev) => {
       if (this.mode === "route") this.rubber(ev);
+      if (this.stroke) { const f = this.toFrac(ev), l = this.stroke.p.at(-1); if (Math.hypot(f.x - l[0], f.y - l[1]) > 0.002) { this.stroke.p.push([+f.x.toFixed(5), +f.y.toFixed(5)]); this.drawStroke(); } return; }
       const d = this.drag; if (!d) return;
       const dx = ev.clientX - d.x, dy = ev.clientY - d.y;
       if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
       if (d.moved) { this.view.x = d.vx + dx; this.view.y = d.vy + dy; this.apply(); vp.classList.add("ncm-grab"); }
     });
     vp.addEventListener("pointerup", (ev) => {
+      if (this.stroke) { const st = this.stroke; this.stroke = null; return save(s => { s.roads = [...(s.roads ?? []), st]; }); }
       const d = this.drag; this.drag = null; vp.classList.remove("ncm-grab");
       if (!d || d.moved) return;
       if (d.btn === 2) { if (this.mode === "route" && this.route.length) { this.route.pop(); this.recalc(); } return; }
@@ -1044,6 +1125,7 @@ const UI = {
   },
   setMode(m) {
     this.mode = this.mode === m ? "browse" : m;
+    if (this.mode === "roads") loadGrid().then(() => this.renderRoads()); else this.renderRoads();
     if (this.mode === "route" && !this.route.length && this.sel) { const p = poiById(this.sel); if (p) this.route.push({ x: p.x, y: p.y, poi: p.id }); }
     this.renderHint(); this.renderPanel(); this.renderSvg();
   },
@@ -1144,6 +1226,10 @@ const UI = {
         this.sel = null; return save(s => { s.poi[id] = { ...(s.poi[id] ?? {}), removed: true }; });
       }
       case "places": return this.renderPlaces();
+      case "mode-roads": return this.setMode("roads");
+      case "brush": this.brush.t = b.dataset.t; return this.renderPanel();
+      case "roads-undo": return save(s => { s.roads = (s.roads ?? []).slice(0, -1); });
+      case "roads-clear": { const ok = await Dialog.confirm({ title: T("Дороги"), content: `<p>${T("Сбросить все свои правки дорог?")}</p>` }); if (ok) return save(s => { s.roads = []; }); return; }
       case "restore-poi": return save(s => { if (s.poi[id]) delete s.poi[id].removed; }).then(() => this.renderPlaces());
       case "places-all": return save(s => { for (const p of POIS) { s.poi[p.id] = { ...(s.poi[p.id] ?? {}) }; if (b.dataset.on === "1") delete s.poi[p.id].removed; else s.poi[p.id].removed = true; } }).then(() => this.renderPlaces());
       case "export": return exportData();
@@ -1608,7 +1694,7 @@ async function doPurchase(actor, it) {
 
 /* ================================================================ экспорт и импорт мест */
 
-const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests"];
+const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests", "roads"];
 function exportData() {
   const s = state(), out = { module: MID, version: game.modules.get(MID)?.version, ...Object.fromEntries(EXPORT_KEYS.map(k => [k, s[k]])) };
   const dl = foundry.utils.saveDataToFile ?? globalThis.saveDataToFile;

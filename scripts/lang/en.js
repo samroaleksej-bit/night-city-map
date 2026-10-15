@@ -1140,5 +1140,18 @@ export default {
  "Это не файл карты Найт-Сити.": "This is not a Night City map file.",
  "Заменить места, свои точки, встречи, магазины и заказы данными из файла?": "Replace places, custom points, encounters, shops and gigs with the data from the file?",
  "Импорт готов.": "Import done.",
- "пусто — арт модуля": "empty — module art"
+ "пусто — арт модуля": "empty — module art",
+ "Сетка дорог для маршрутов: показать и дорисовать": "Road grid for routes: show and paint",
+ "Дороги": "Roads",
+ "Голубое — улицы, по ним идут маршруты. Синее — вода, через неё не пройти. Рисуй левой кнопкой, карту двигай правой.": "Cyan is streets, routes follow them. Blue is water, no way through. Paint with the left button, move the map with the right.",
+ "Улица": "Street",
+ "Стереть улицу": "Erase street",
+ "Вода": "Water",
+ "Ширина кисти": "Brush width",
+ "Своих мазков:": "Your strokes:",
+ "Отменить мазок": "Undo stroke",
+ "Сбросить правки": "Reset edits",
+ "Своя карта? Нарисуй сетку целиком (белое — улицы, серое — суша, чёрное — вода) и укажи файл в настройках модуля.": "Your own map? Draw a full grid (white streets, gray land, black water) and set the file in the module settings.",
+ "Рисуй дороги левой кнопкой мыши, двигай карту правой.": "Paint roads with the left mouse button, move the map with the right.",
+ "Сбросить все свои правки дорог?": "Reset all your road edits?"
 };

@@ -469,3 +469,7 @@
 #ncm .ncm-buy { width: 34px; padding-left: 6px; }
 #ncm .ncm-buy button { width: 30px; height: 28px; padding: 0; display: grid; place-items: center; border: 1px solid var(--y); background: rgba(252,238,10,.08); color: var(--y); cursor: pointer; }
 #ncm .ncm-buy button:hover { background: var(--y); color: #111; }
+#ncm .ncm-roads { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
+#ncm .ncm-range { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; font-size: 12px; color: #8a90a8; }
+#ncm .ncm-range input { width: 100%; }
+#ncm.ncm-roadsmode .ncm-markers { opacity: .35; }

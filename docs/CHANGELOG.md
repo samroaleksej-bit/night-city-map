@@ -1,3 +1,15 @@
+## 0.15.0 — roads
+
+- New **Roads** button (GM): shows the street grid that routes follow, right on the map.
+- Paint it with a brush: add streets, erase them, mark water. Undo or reset your edits any time; they travel with export/import.
+- New setting **Road grid image**: your own full grid for a custom map (white streets, gray land, black water).
+
+## 0.15.0 — дороги
+
+- Кнопка «Дороги» (мастер): сетка улиц, по которой идут маршруты, прямо на карте.
+- Её можно дорисовать кистью: добавить улицу, стереть, отметить воду. Правки отменяются и переносятся экспортом.
+- Настройка «Сетка дорог»: своя сетка целиком под свою карту (белое — улицы, серое — суша, чёрное — вода).
+
 ## 0.14.0 — your own city
 
 - Edit any place, built-in ones too: name, category, description, your own dossier art.
