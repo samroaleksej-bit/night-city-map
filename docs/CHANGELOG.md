@@ -1,3 +1,19 @@
+## 0.14.0 — your own city
+
+- Edit any place, built-in ones too: name, category, description, your own dossier art.
+- Move any place, shop or Night Market with the Move button.
+- Remove built-in places from the map, restore them one by one or all at once (Places window). Handy for running your own map, e.g. 2077.
+- Export and import: custom points, place edits, encounters, shops, markets and gigs travel between worlds as one JSON file.
+- Players can buy in shops and Night Markets. Cyberpunk RED: eddies come off the character's wealth ledger, the item comes from the system compendium (or a plain gear item if there's no match). New setting **Buying in shops**: GM approves / instantly / off.
+
+## 0.14.0 — свой город
+
+- Любое место, включая встроенные, можно править: название, категория, описание, свой арт для досье.
+- Любое место, магазин или Ночной рынок можно переместить.
+- Встроенные места можно убрать с карты и вернуть (окно «Места») — под свою карту, например 2077.
+- Экспорт и импорт: свои точки, правки, встречи, магазины, рынки и заказы одним файлом.
+- Игроки покупают в магазинах и на Ночных рынках: эдди списываются с персонажа, предмет берётся из компендиума системы. Настройка «Покупки в магазинах»: мастер подтверждает / сразу / выключено.
+
 ## 0.13.0 — community feedback
 
 - Sharp text at any zoom; place names show without hovering when you zoom in close.

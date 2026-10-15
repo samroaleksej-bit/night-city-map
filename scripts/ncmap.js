@@ -73,6 +73,10 @@ Hooks.once("init", () => {
     name: "NCM.Settings.AgentOnName", hint: "NCM.Settings.AgentOnHint",
     scope: "world", config: true, type: Boolean, default: true, requiresReload: true
   });
+  game.settings.register(MID, "shopBuy", {
+    name: "NCM.Settings.BuyName", hint: "NCM.Settings.BuyHint", scope: "world", config: true, type: String, default: "gm",
+    choices: { gm: "NCM.Settings.BuyGm", auto: "NCM.Settings.BuyAuto", off: "NCM.Settings.BuyOff" }
+  });
   game.settings.register(MID, "autoPlaced", { scope: "world", config: false, type: Boolean, default: false });
   game.settings.register(MID, "scAsked", { scope: "world", config: false, type: Boolean, default: false });
   game.settings.register(MID, "notify", { name: "NCM.Settings.NotifyName", scope: "world", config: true, type: Boolean, default: true });
@@ -212,6 +216,7 @@ async function applyOp(op, d, user) {
     case "me": return save(s => { s.players[user.id] = { x: d.x, y: d.y }; });
     case "me-clear": return save(s => { delete s.players[user.id]; });
     case "party-clear": return save(s => { s.party = null; });
+    case "buy": return gmApproveBuy(d, user);
     case "travel": {
       await advanceTime(d.min);
       await save(s => { if (d.who === "party") s.party = { x: d.x, y: d.y }; else s.players[d.who] = { x: d.x, y: d.y }; });
@@ -231,7 +236,7 @@ function chatTravel(d, name) {
 /** Все точки: базовые + метки мастера, с учётом правок мастера. Скрытые — только мастеру. */
 function allPois() {
   const s = state();
-  const base = POIS.map(p => ({ ...p, ...(s.poi[p.id] ?? {}) }));
+  const base = POIS.map(p => ({ ...p, ...(s.poi[p.id] ?? {}) })).filter(p => !p.removed);
   const pins = s.pins.map(p => ({ cat: "custom", ...p }));
   const shops = (s.shops ?? []).map(sh => ({ ...sh, cat: "shop", desc: SHOP_TYPES[sh.type]?.ru ?? T("Магазин"), shop: true }));
   const markets = (s.markets ?? []).map(m => ({ ...m, cat: "market", desc: T("Ночной рынок"), market: true }));
@@ -437,6 +442,7 @@ const UI = {
           <button data-act="gen-shops" title="${T("Расставить случайные магазины по городу")}"><i class="fas fa-cart-shopping"></i> ${T("Магазины")}</button>
           <button data-act="gen-markets" title="${T("Расставить Ночные рынки: репутация и фиксер для входа")}"><i class="fas fa-moon"></i> ${T("Ночные рынки")}</button>
           <button data-act="mode-pin" title="${T("Добавить свою точку")}"><i class="fas fa-location-dot"></i> ${T("Точка")}</button>
+          <button data-act="places" title="${T("Места на карте: вернуть убранные, экспорт и импорт")}"><i class="fas fa-map-location-dot"></i> ${T("Места")}</button>
           <button data-act="share" title="${T("Открыть карту у всех игроков на этом месте")}"><i class="fas fa-satellite-dish"></i> ${T("Показать всем")}</button>` : ""}
         </div>
         <div class="ncm-clock" title="${T("Время в Найт-Сити")}"></div>
@@ -601,7 +607,7 @@ const UI = {
   renderHint() {
     const h = this.el.querySelector(".ncm-hint");
     const msg = { route: T("Маршрут: кликайте по карте или точкам — каждый клик добавляет поворот. Тяните карту мышью, чтобы сдвинуть. Правый клик — убрать последнюю точку."),
-      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку.") }[this.mode];
+      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место.") }[this.mode];
     const st = state();
     const clr = this.mode === "party" && st.party ? `<button data-act="party-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>`
       : this.mode === "me" && st.players?.[game.user.id] ? `<button data-act="me-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>` : "";
@@ -645,10 +651,12 @@ const UI = {
           ${isGM() ? `
           <button data-act="visit" data-id="${p.id}"><i class="fas fa-${s.visited.includes(p.id) ? "eye-slash" : "check"}"></i> ${s.visited.includes(p.id) ? T("Не посещено") : T("Посещено")}</button>
           <button data-act="edit-poi" data-id="${p.id}"><i class="fas fa-pen"></i> ${T("Править")}</button>
+          <button data-act="move" data-id="${p.id}"><i class="fas fa-arrows-up-down-left-right"></i> ${T("Переместить")}</button>
+          ${!p.id.startsWith("c") && !p.locked ? `<button class="danger" data-act="remove-poi" data-id="${p.id}"><i class="fas fa-eye-slash"></i> ${T("Убрать с карты")}</button>` : ""}
           <button data-act="new-quest" data-id="${p.id}"><i class="fas fa-plus"></i> ${T("Заказ здесь")}</button>
           <button data-act="toggle-hide" data-id="${p.id}"><i class="fas fa-${p.hidden ? "eye" : "eye-slash"}"></i> ${p.hidden ? T("Показать игрокам") : T("Скрыть от игроков")}</button>
-          ${p.id.startsWith("c") ? `<button data-act="lock-pin" data-id="${p.id}"><i class="fas fa-${p.locked ? "lock-open" : "lock"}"></i> ${p.locked ? T("Снять защиту") : T("Защитить от удаления")}</button>
-          ${p.locked ? "" : `<button class="danger" data-act="del-pin" data-id="${p.id}"><i class="fas fa-trash"></i> ${T("Удалить точку")}</button>`}` : ""}` : ""}
+          <button data-act="lock-pin" data-id="${p.id}"><i class="fas fa-${p.locked ? "lock-open" : "lock"}"></i> ${p.locked ? T("Снять защиту") : T("Защитить от удаления")}</button>
+          ${p.id.startsWith("c") && !p.locked ? `<button class="danger" data-act="del-pin" data-id="${p.id}"><i class="fas fa-trash"></i> ${T("Удалить точку")}</button>` : ""}` : ""}
         </div>
       </div>`;
   },
@@ -657,7 +665,7 @@ const UI = {
     const stock = stockFor(sh.type, sh.seed), q = (this.shopQuery ?? "").toLowerCase();
     const mk = sh.markup ?? 1;
     const byCat = {};
-    for (const it of stock) if (!q || `${it.n} ${it.note ?? ""}`.toLowerCase().includes(q)) (byCat[it.cat] ??= []).push(it);
+    stock.forEach((it, i) => { it.i = i; if (!q || `${it.n} ${it.note ?? ""}`.toLowerCase().includes(q)) (byCat[it.cat] ??= []).push(it); });
     const color = CATALOG[t.cats[0]].color;
     panel.classList.add("on");
     panel.innerHTML = `
@@ -674,7 +682,7 @@ const UI = {
         <label class="ncm-shopsearch"><i class="fas fa-magnifying-glass"></i><input type="search" data-shopq placeholder="${T("Найти товар…")}" value="${esc(this.shopQuery ?? "")}"></label>
         ${Object.entries(byCat).map(([c, items]) => `<h3 style="color:${CATALOG[c].color}"><i class="fas ${CATALOG[c].icon}"></i> ${CATALOG[c].ru}</h3>
           <table class="ncm-stock">${items.map(it => `<tr><td><b>${esc(it.n)}</b>${it.note ? `<small>${esc(it.note)}</small>` : ""}</td>
-            <td class="ncm-tier">${TIERS[it.tier].ru}</td><td class="ncm-eb">${Math.round(TIERS[it.tier].eb * mk / 5) * 5 || TIERS[it.tier].eb} eb</td></tr>`).join("")}</table>`).join("") || `<p class="ncm-muted">${T("Ничего не найдено.")}</p>`}
+            <td class="ncm-tier">${TIERS[it.tier].ru}</td><td class="ncm-eb">${priceOf(it, mk)} eb</td>${buyCell(sh.id, it)}</tr>`).join("")}</table>`).join("") || `<p class="ncm-muted">${T("Ничего не найдено.")}</p>`}
         ${encBlock(sh.x, sh.y, d?.id)}
         <div class="ncm-p-acts">
           <button data-act="route-to" data-id="${sh.id}"><i class="fas fa-flag-checkered"></i> ${T("Маршрут сюда")}</button>
@@ -694,7 +702,7 @@ const UI = {
     const okRep = rep >= need, okFix = access.includes(game.user.id), can = gm || (okRep && okFix);
     const mk = m.markup ?? 1, q = (this.shopQuery ?? "").toLowerCase();
     const byCat = {};
-    if (can && (open || gm)) for (const it of marketStock(m.cats ?? [], m.seed)) if (!q || `${it.n} ${it.note ?? ""}`.toLowerCase().includes(q)) (byCat[it.cat] ??= []).push(it);
+    if (can && (open || gm)) marketStock(m.cats ?? [], m.seed).forEach((it, i) => { it.i = i; if (!q || `${it.n} ${it.note ?? ""}`.toLowerCase().includes(q)) (byCat[it.cat] ??= []).push(it); });
     const players = game.users.filter(u => !u.isGM);
     const lock = !can ? `<div class="ncm-mlock"><i class="fas fa-lock"></i><b>${T("Вход только по рекомендации")}</b><span>${T("Без репутации и фиксера охрана развернёт тебя ещё на подходе.")}</span></div>`
       : !open && !gm ? `<div class="ncm-mlock"><i class="fas fa-moon"></i><b>${T("Рынок свёрнут")}</b><span>${T("Торговцы появятся с наступлением ночи — после 21:00.")}</span></div>` : "";
@@ -723,7 +731,7 @@ const UI = {
         <div class="ncm-mk">${T("Цены:")} ${mk === 1 ? T("по книге") : mk > 1 ? `+${Math.round((mk - 1) * 100)}${T("% к книге")}` : `−${Math.round((1 - mk) * 100)}${T("% к книге")}`}</div>` : ""}
         ${Object.entries(byCat).map(([k, items]) => `<h3 style="color:${CATALOG[k].color}"><i class="fas ${CATALOG[k].icon}"></i> ${CATALOG[k].ru}</h3>
           <table class="ncm-stock">${items.map(it => `<tr><td><b>${esc(it.n)}</b>${it.note ? `<small>${esc(it.note)}</small>` : ""}</td>
-            <td class="ncm-tier">${TIERS[it.tier].ru}</td><td class="ncm-eb">${Math.round(TIERS[it.tier].eb * mk / 5) * 5 || TIERS[it.tier].eb} eb</td></tr>`).join("")}</table>`).join("")}
+            <td class="ncm-tier">${TIERS[it.tier].ru}</td><td class="ncm-eb">${priceOf(it, mk)} eb</td>${open || gm ? buyCell(m.id, it) : ""}</tr>`).join("")}</table>`).join("")}
         ${encBlock(m.x, m.y, d?.id)}
         <div class="ncm-p-acts">
           <button data-act="route-to" data-id="${m.id}"><i class="fas fa-flag-checkered"></i> ${T("Маршрут сюда")}</button>
@@ -818,6 +826,29 @@ const UI = {
         ${inside.length ? `<h3>${T("Места района")}</h3><div class="ncm-list">${inside.map(p => `<button data-poi="${p.id}" style="--c:${(CATS[p.cat] ?? CATS.custom).color}"><span>${p.n ?? "•"}</span>${esc(p.name)}</button>`).join("")}</div>` : ""}
       </div>`;
     this.focus(d.x, d.y);
+  },
+
+  /* ------------------------------------------------ места: убранные, экспорт */
+  renderPlaces() {
+    const panel = this.el.querySelector(".ncm-panel"), s = state();
+    const removed = POIS.filter(p => s.poi[p.id]?.removed);
+    this.sel = null; this.renderMarkers();
+    panel.classList.add("on");
+    panel.innerHTML = `
+      <div class="ncm-p-head" style="--c:#00f0ff">
+        <span class="ncm-p-cat"><i class="fas fa-map-location-dot"></i> ${T("Мастер")}</span>
+        <h2>${T("Места на карте")}</h2>
+        <button class="ncm-p-x" data-act="unsel"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="ncm-p-body">
+        <p class="ncm-muted">${T("Любое место можно править, перемещать и убирать с карты. Свою карту (например, 2077) ставь в настройках модуля, встроенные места убери и расставь свои.")}</p>
+        <div class="ncm-seg"><button data-act="places-all" data-on="0">${T("Убрать все встроенные")}</button><button data-act="places-all" data-on="1">${T("Вернуть все встроенные")}</button></div>
+        <h3>${T("Убранные места")} · ${removed.length}</h3>
+        ${removed.length ? removed.map(p => `<div class="ncm-own"><div><b>${esc(p.name)}</b><small>${esc((CATS[p.cat] ?? CATS.custom).ru)}</small></div><button data-act="restore-poi" data-id="${p.id}" title="${T("Вернуть")}"><i class="fas fa-rotate-left"></i></button></div>`).join("") : `<p class="ncm-muted">${T("Ничего не убрано.")}</p>`}
+        <h3>${T("Перенос между мирами")}</h3>
+        <p class="ncm-muted">${T("В файл попадают свои точки, правки мест, встречи, магазины, рынки и заказы.")}</p>
+        <div class="ncm-p-acts"><button data-act="export"><i class="fas fa-file-export"></i> ${T("Экспорт")}</button><button data-act="import"><i class="fas fa-file-import"></i> ${T("Импорт")}</button></div>
+      </div>`;
   },
 
   /* ------------------------------------------------ свои встречи */
@@ -1033,6 +1064,14 @@ const UI = {
       this.route.push(p ? { x: p.x, y: p.y, poi: p.id } : gq ? { x: gq.x, y: gq.y, gig: gq.id } : f);
       return this.recalc();
     }
+    if (this.mode === "move") {
+      const id = this.moveId; this.moveId = null;
+      if (id) await save(s => {
+        const pin = s.pins.find(x => x.id === id) ?? s.shops.find(x => x.id === id) ?? s.markets.find(x => x.id === id);
+        if (pin) Object.assign(pin, { x: f.x, y: f.y }); else s.poi[id] = { ...(s.poi[id] ?? {}), x: f.x, y: f.y };
+      });
+      this.setMode("browse"); return id && this.select(id);
+    }
     if (this.mode === "party") { await act("party", f); this.setMode("browse"); return; }
     if (this.mode === "me") { await act("me", f); this.setMode("browse"); return; }
     if (this.mode === "pin") {
@@ -1097,7 +1136,20 @@ const UI = {
         else if (id.startsWith("c")) { const p = s.pins.find(x => x.id === id); if (p) p.hidden = !p.hidden; }
         else { s.poi[id] = { ...(s.poi[id] ?? {}), hidden: !(s.poi[id]?.hidden) }; }
       });
-      case "lock-pin": return save(s => { const p = s.pins.find(x => x.id === id); if (p) p.locked = !p.locked; });
+      case "move": this.moveId = id; this.mode = "browse"; return this.setMode("move");
+      case "remove-poi": {
+        const p = poiById(id); if (!p || p.locked) return;
+        const ok = await Dialog.confirm({ title: T("Убрать с карты"), content: `<p>${T("Убрать «")}${esc(p.name)}${T("» с карты? Вернуть можно в окне «Места».")}</p>` });
+        if (!ok) return;
+        this.sel = null; return save(s => { s.poi[id] = { ...(s.poi[id] ?? {}), removed: true }; });
+      }
+      case "places": return this.renderPlaces();
+      case "restore-poi": return save(s => { if (s.poi[id]) delete s.poi[id].removed; }).then(() => this.renderPlaces());
+      case "places-all": return save(s => { for (const p of POIS) { s.poi[p.id] = { ...(s.poi[p.id] ?? {}) }; if (b.dataset.on === "1") delete s.poi[p.id].removed; else s.poi[p.id].removed = true; } }).then(() => this.renderPlaces());
+      case "export": return exportData();
+      case "import": return importData().then(() => this.renderPlaces());
+      case "buy": return buyItem({ shopId: b.dataset.shop, i: Number(b.dataset.i) });
+      case "lock-pin": return save(s => { const p = s.pins.find(x => x.id === id); if (p) p.locked = !p.locked; else if (s.poi[id] || POIS.some(x => x.id === id)) s.poi[id] = { ...(s.poi[id] ?? {}), locked: !s.poi[id]?.locked }; });
       case "del-pin": {
         const p = poiById(id); if (!p || p.locked) return;
         const ok = await Dialog.confirm({ title: T("Удалить точку"), content: `<p>${T("Удалить точку «")}${esc(p.name)}${T("»? Это не отменить.")}</p>` });
@@ -1107,10 +1159,9 @@ const UI = {
       case "edit-poi": {
         const p = poiById(id);
         if (id.startsWith("c")) { const data = await pinDialog(p.name, p); if (!data) return; return save(s => { Object.assign(s.pins.find(x => x.id === id) ?? {}, data); }); }
-        const data = await formDialog(p.name, `<form class="ncm-form"><label>${T("Название")}<input name="name" value="${esc(p.name)}"></label>
-          <label>${T("Описание (видят игроки)")}<textarea name="desc" rows="4">${esc(p.desc ?? "")}</textarea></label>
-          <label>${T("Заметки мастера")}<textarea name="notes" rows="3">${esc(p.notes ?? "")}</textarea></label></form>`);
+        const data = await pinDialog(p.name, p, { base: true });
         if (!data) return;
+        if (!data.img) delete data.img;
         return save(s => {
           if (id.startsWith("c")) Object.assign(s.pins.find(x => x.id === id) ?? {}, data);
           else s.poi[id] = { ...(s.poi[id] ?? {}), ...data };
@@ -1283,7 +1334,7 @@ function chatEnc(e, gmOnly) {
 
 /* ================================================================ досье места: арт + текст в стиле терминала */
 
-const poiArt = (p) => p?.n ? `modules/${MID}/assets/poi/p${p.n}.webp` : (p?.img ?? "");
+const poiArt = (p) => p?.img || (p?.n ? `modules/${MID}/assets/poi/p${p.n}.webp` : "");
 const hex = (n) => (n * 2654435761 >>> 0).toString(16).toUpperCase().padStart(8, "0");
 
 /** Арт на весь экран: клик — увеличить ×2.5 в точке клика, тянуть — двигать, колесо — масштаб, Esc/✕ — закрыть. */
@@ -1487,14 +1538,101 @@ async function placeShops({ n = 30, replace = true, hidden = false, quiet = fals
 
 /* ================================================================ диалоги */
 
+/* ================================================================ покупки в магазинах и на Ночных рынках */
+
+const priceOf = (it, mk = 1) => Math.round(TIERS[it.tier].eb * mk / 5) * 5 || TIERS[it.tier].eb;
+const buyMode = () => { try { return game.settings.get(MID, "shopBuy"); } catch (e) { return "gm"; } };
+function buyCell(shopId, it) {
+  if (isGM() || buyMode() === "off" || !game.user.character) return "";
+  return `<td class="ncm-buy"><button data-act="buy" data-shop="${shopId}" data-i="${it.i}" title="${T("Купить")}"><i class="fas fa-cart-plus"></i></button></td>`;
+}
+/** Товар по магазину и номеру в ассортименте (ассортимент детерминирован по seed — одинаков у всех). */
+function stockItem(shopId, i) {
+  const s = state(), sh = s.shops.find(x => x.id === shopId), m = s.markets.find(x => x.id === shopId);
+  const list = sh ? stockFor(sh.type, sh.seed) : m ? marketStock(m.cats ?? [], m.seed) : [];
+  const it = list[i]; if (!it) return null;
+  const place = sh ?? m;
+  return { ...it, price: priceOf(it, place.markup ?? 1), shop: place.name, market: !!m };
+}
+const wealthOf = (a) => Number(a?.system?.wealth?.value);
+async function buyItem({ shopId, i }) {
+  const it = stockItem(shopId, i), actor = game.user.character;
+  if (!it || !actor) return ui.notifications.warn(T("Нужен назначенный персонаж, чтобы покупать."));
+  const w = wealthOf(actor);
+  const ok = await Dialog.confirm({ title: T("Покупка"), content: `<p>${T("Купить «")}${esc(it.n)}${T("» за")} <b>${it.price} eb</b>?</p>${Number.isFinite(w) ? `<p>${T("На счету:")} ${w} eb</p>` : ""}${buyMode() === "gm" ? `<p><i>${T("Мастер должен подтвердить покупку.")}</i></p>` : ""}` });
+  if (!ok) return;
+  if (Number.isFinite(w) && w < it.price) return ui.notifications.warn(T("Не хватает эдди."));
+  if (buyMode() === "auto") return doPurchase(actor, it);
+  await act("buy", { shopId, i, actorId: actor.id });
+  ui.notifications.info(T("Запрос на покупку отправлен мастеру."));
+}
+async function gmApproveBuy(d, user) {
+  const it = stockItem(d.shopId, d.i), actor = game.actors.get(d.actorId);
+  if (!it || !actor) return;
+  const who = actor.name ?? user?.name;
+  const ok = buyMode() === "auto" ? true : await Dialog.confirm({ title: T("Покупка"),
+    content: `<p><b>${esc(who)}</b> ${T("хочет купить «")}${esc(it.n)}${T("» за")} <b>${it.price} eb</b> ${T("в «")}${esc(it.shop)}${T("»")}.</p>${Number.isFinite(wealthOf(actor)) ? `<p>${T("На счету:")} ${wealthOf(actor)} eb</p>` : ""}` });
+  if (!ok) return ChatMessage.create({ speaker: { alias: it.shop }, whisper: [user?.id].filter(Boolean), content: `<div class="ncm-chat"><div class="ncm-chat-k">${T("ПОКУПКА ОТКЛОНЕНА")}</div>${esc(it.n)}</div>` });
+  return doPurchase(actor, it);
+}
+/** Найти предмет в компендиумах системы по английскому имени. */
+let ITEM_INDEX = null;
+async function findSystemItem(name) {
+  const norm = (s) => String(s ?? "").toLowerCase().replace(/\(.*?\)|×\s*\d+/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+  if (!ITEM_INDEX) {
+    ITEM_INDEX = new Map();
+    for (const pack of game.packs ?? []) {
+      if (pack.documentName !== "Item" || pack.metadata?.packageType !== "system") continue;
+      try { for (const e of await pack.getIndex()) { const k = norm(e.name); if (k && !ITEM_INDEX.has(k)) ITEM_INDEX.set(k, `${pack.collection}.${e._id}`); } } catch (e) { /* пак не открылся */ }
+    }
+  }
+  const tries = [name, String(name).split(" / ")[0], String(name).split(",")[0]].map(norm);
+  for (const k of tries) {
+    const ref = ITEM_INDEX.get(k); if (!ref) continue;
+    const [pk, id] = [ref.slice(0, ref.lastIndexOf(".")), ref.slice(ref.lastIndexOf(".") + 1)];
+    const doc = await game.packs.get(pk)?.getDocument(id);
+    if (doc) { const o = doc.toObject(); delete o._id; return o; }
+  }
+  return null;
+}
+async function doPurchase(actor, it) {
+  const cpr = typeof actor.deltaLedgerProperty === "function" && Number.isFinite(wealthOf(actor));
+  if (cpr && wealthOf(actor) < it.price) return ui.notifications.warn(`${actor.name}: ${T("не хватает эдди.")}`);
+  if (cpr) await actor.deltaLedgerProperty("wealth", -it.price, `${it.n} — ${it.shop}`);
+  let data = await findSystemItem(it.en ?? it.n);
+  if (!data && game.system.id === "cyberpunk-red-core") data = { name: it.n, type: "gear", system: { price: { market: it.price } } };
+  let added = false;
+  if (data) { try { await actor.createEmbeddedDocuments("Item", [data]); added = true; } catch (e) { console.warn(MID, e); } }
+  ChatMessage.create({ speaker: { alias: it.shop }, content: `<div class="ncm-chat"><div class="ncm-chat-k">${it.market ? T("НОЧНОЙ РЫНОК") : T("ПОКУПКА")}</div><b>${esc(actor.name)}</b> ${T("покупает «")}${esc(it.n)}${T("» за")} ${it.price} eb.${cpr ? "" : `<br><i>${T("Спишите эдди вручную.")}</i>`}${added ? "" : `<br><i>${T("Предмет добавьте на лист вручную.")}</i>`}</div>` });
+}
+
+/* ================================================================ экспорт и импорт мест */
+
+const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests"];
+function exportData() {
+  const s = state(), out = { module: MID, version: game.modules.get(MID)?.version, ...Object.fromEntries(EXPORT_KEYS.map(k => [k, s[k]])) };
+  const dl = foundry.utils.saveDataToFile ?? globalThis.saveDataToFile;
+  dl(JSON.stringify(out, null, 1), "application/json", "night-city-map.json");
+}
+async function importData() {
+  const file = await new Promise(res => { const i = document.createElement("input"); i.type = "file"; i.accept = ".json,application/json"; i.onchange = () => res(i.files[0]); i.click(); });
+  if (!file) return;
+  let d; try { d = JSON.parse(await file.text()); } catch (e) { return ui.notifications.error(T("Это не файл карты Найт-Сити.")); }
+  if (d?.module !== MID) return ui.notifications.error(T("Это не файл карты Найт-Сити."));
+  const ok = await Dialog.confirm({ title: T("Импорт"), content: `<p>${T("Заменить места, свои точки, встречи, магазины и заказы данными из файла?")}</p>` });
+  if (!ok) return;
+  await save(s => { for (const k of EXPORT_KEYS) if (d[k] !== undefined) s[k] = d[k]; });
+  ui.notifications.info(T("Импорт готов."));
+}
+
 /** Своя точка мастера: категория, описание, картинка для досье, защита от удаления. */
-function pinDialog(title, p = {}) {
+function pinDialog(title, p = {}, { base = false } = {}) {
   const cats = Object.entries(CATS).filter(([k]) => !["shop", "market"].includes(k));
   return formDialog(title, `<form class="ncm-form">
     <label>${T("Название")}<input name="name" value="${esc(p.name ?? "")}" placeholder="${T("Схрон Мальстрема")}"></label>
     <label>${T("Категория")}<select name="cat">${cats.map(([k, c]) => `<option value="${k}"${(p.cat ?? "custom") === k ? " selected" : ""}>${c.ru}</option>`).join("")}</select></label>
     <label>${T("Описание (видят игроки)")}<textarea name="desc" rows="4">${esc(p.desc ?? "")}</textarea></label>
-    <label>${T("Картинка для досье")}<span class="ncm-fp"><input name="img" value="${esc(p.img ?? "")}" placeholder="worlds/…/bar.webp"><button type="button" data-fp="img" title="${T("Выбрать файл")}"><i class="fas fa-file-image"></i></button></span></label>
+    <label>${T("Картинка для досье")}<span class="ncm-fp"><input name="img" value="${esc(p.img ?? "")}" placeholder="${base ? T("пусто — арт модуля") : "worlds/…/bar.webp"}"><button type="button" data-fp="img" title="${T("Выбрать файл")}"><i class="fas fa-file-image"></i></button></span></label>
     <label>${T("Заметки мастера")}<textarea name="notes" rows="2">${esc(p.notes ?? "")}</textarea></label>
     <label class="ncm-check"><input type="checkbox" name="hidden" ${p.hidden ? "checked" : ""}> ${T("Скрыть от игроков")}</label>
     <label class="ncm-check"><input type="checkbox" name="locked" ${p.locked ? "checked" : ""}> ${T("Защитить от удаления")}</label></form>`);

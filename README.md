@@ -60,6 +60,12 @@ Players get the same map without the GM tools: places, rumors, routes and their 
 
 ![Player view](docs/screens/15-player-view.webp)
 
+### Your own city
+Edit, move or remove any place, built-in ones included, add your own with art and categories, write your own random encounters, and carry it all between worlds with export and import. Swap the map image in the settings and you can run a different Night City, 2077 included.
+
+### Shopping
+Players buy from shops and Night Markets right on the map. In Cyberpunk RED the eddies come off the character and the item lands on the sheet; the GM can approve each purchase.
+
 Also included: 24 ready-made street NPCs (fixers, threats, specialists) in an English and a Russian compendium.
 
 ## Install
@@ -102,6 +108,8 @@ Module code and texts: Verlierboy · [Circle of Masters](https://t.me/circleofdm
 - метки «Мы здесь» и «Я здесь»;
 - телефон «Агент»;
 - часы и календарь, синхронизация с Simple Calendar;
+- свои места, правка и перенос встроенных, свои встречи, экспорт и импорт;
+- покупки в магазинах прямо с карты (эдди списываются с персонажа);
 - компендиум из 24 NPC.
 
 **Установка:** в Foundry открой «Дополнения», нажми «Установить модуль» и вставь манифест:

@@ -1,4 +1,7 @@
 import { T } from "./i18n.js";
+import EN from "./lang/en.js";
+/** Английское имя предмета — для поиска в компендиумах системы (там всё по-английски). */
+const enOf = (s) => EN[s] ?? s;
 // Магазины Найт-Сити: каталог товаров по Корке Cyberpunk RED (цены — категории книги) и генератор лавок.
 
 /** Категории цен RED (Корка, «Ночной рынок»). */
@@ -138,11 +141,11 @@ export function stockFor(type, seed) {
       const groups = [...cat.groups].sort(() => r() - 0.5).slice(0, n);
       for (const [g, prices] of groups) {
         const ps = prices.split(" ").map(x => x.replace("_", " "));
-        cat.pieces.forEach((p, i) => out.push({ cat: c, n: `${T(p)} — ${g.split(" — ")[0]}`, tier: tierByRu(ps[i]), note: T(g.split(" — ")[1]) }));
+        cat.pieces.forEach((p, i) => out.push({ cat: c, n: `${T(p)} — ${g.split(" — ")[0]}`, en: `${g.split(" — ")[0]} ${enOf(p)}`, tier: tierByRu(ps[i]), note: T(g.split(" — ")[1]) }));
       }
     } else {
       const keep = type === "night" ? 0.35 : 0.85;
-      for (const it of cat.items) if (r() < keep) out.push({ cat: c, n: T(it.n), tier: it.t, note: T(it.note) });
+      for (const it of cat.items) if (r() < keep) out.push({ cat: c, n: T(it.n), en: enOf(it.n), tier: it.t, note: T(it.note) });
     }
   }
   return out;
@@ -172,9 +175,9 @@ export function marketStock(keys, seed) {
       const groups = [...cat.groups].sort(() => r() - 0.5).slice(0, 3);
       for (const [g, prices] of groups) {
         const ps = prices.split(" ").map(x => x.replace("_", " "));
-        cat.pieces.forEach((p, i) => out.push({ cat: c, n: `${T(p)} — ${g.split(" — ")[0]}`, tier: tierByRu(ps[i]), note: T(g.split(" — ")[1]) }));
+        cat.pieces.forEach((p, i) => out.push({ cat: c, n: `${T(p)} — ${g.split(" — ")[0]}`, en: `${g.split(" — ")[0]} ${enOf(p)}`, tier: tierByRu(ps[i]), note: T(g.split(" — ")[1]) }));
       }
-    } else for (const it of cat.items) if (r() < 0.5) out.push({ cat: c, n: T(it.n), tier: it.t, note: T(it.note) });
+    } else for (const it of cat.items) if (r() < 0.5) out.push({ cat: c, n: T(it.n), en: enOf(it.n), tier: it.t, note: T(it.note) });
   }
   return out;
 }

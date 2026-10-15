@@ -2,7 +2,7 @@
   "id": "night-city-map",
   "title": "Night City · Interactive Map (EN/RU)",
   "description": "<p>An interactive Night City 2045 map for <b>Cyberpunk RED</b>: 65 locations and 21 districts, streets from Cyberpunk 2077, Combat Zones and the Hot Zone, street routing with travel time, random encounters, fixer gigs, procedural shops and Night Markets with Core rulebook prices, a shared “We are here” marker and the Agent phone for gigs and messages. Shift+M — map, Shift+A — Agent.</p><p>Интерактивная карта Найт-Сити 2045 для Cyberpunk RED: места, районы, маршруты, встречи, заказы фиксеров, магазины и Ночные рынки, телефон «Агент». Язык — как у Foundry (или выбирается в настройках модуля).</p>",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "authors": [
     {
       "name": "Verlierboy",
@@ -22,7 +22,7 @@
   "socket": true,
   "url": "https://github.com/samroaleksej-bit/night-city-map",
   "manifest": "https://github.com/samroaleksej-bit/night-city-map/releases/latest/download/module.json",
-  "download": "https://github.com/samroaleksej-bit/night-city-map/releases/download/v0.13.0/module.zip",
+  "download": "https://github.com/samroaleksej-bit/night-city-map/releases/download/v0.14.0/module.zip",
   "packs": [
     {
       "name": "npc",

@@ -19,7 +19,12 @@
    "AgentHint": "The Agent phone opens automatically when you join the game (each player sets their own).",
    "NotifyName": "Notify players about new gigs",
    "AgentOnName": "Agent phone",
-   "AgentOnHint": "Show the Agent phone: the button on the map, the Shift+A key and the scene control. Off — the Agent is gone for everyone."
+   "AgentOnHint": "Show the Agent phone: the button on the map, the Shift+A key and the scene control. Off — the Agent is gone for everyone.",
+   "BuyName": "Buying in shops",
+   "BuyHint": "Players buy from shops and Night Markets with the cart button. Eddies are taken from the character and the item goes on the sheet (Cyberpunk RED). Other systems get a chat note.",
+   "BuyGm": "GM approves each purchase",
+   "BuyAuto": "Instantly, no GM",
+   "BuyOff": "Off"
   },
   "Keys": {
    "Agent": "Agent (phone)",

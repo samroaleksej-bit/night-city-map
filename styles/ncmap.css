@@ -466,3 +466,6 @@
 #ncm .ncm-own button { padding: 0; }
 #ncm .ncm-seg button.on { background: var(--y); border-color: var(--y); color: #111; }
 #ncm .ncm-seg button { height: auto; min-height: 34px; padding: 6px 8px; font-size: 11px; line-height: 1.2; text-align: center; }
+#ncm .ncm-buy { width: 34px; padding-left: 6px; }
+#ncm .ncm-buy button { width: 30px; height: 28px; padding: 0; display: grid; place-items: center; border: 1px solid var(--y); background: rgba(252,238,10,.08); color: var(--y); cursor: pointer; }
+#ncm .ncm-buy button:hover { background: var(--y); color: #111; }
