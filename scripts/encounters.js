@@ -65,8 +65,19 @@ export function threatOf(dist, zone) {
 }
 export const THREAT_RU = { corp: "Корпоративная", moderate: "Умеренная", suburbs: "Переполненные пригороды", combat: "Боевая зона", hot: "Зона Поражения" };
 
-/** Бросок встречи. night — ночь. */
-export function rollEncounter({ distId, threat, night }) {
+/** Своя встреча мастера: подходит ли под угрозу и время суток. */
+const fitsOwn = (e, threat, night) => (!e.threats?.length || e.threats.includes(threat)) && (!e.time || e.time === "any" || (e.time === "night") === !!night);
+
+/** Бросок встречи. night — ночь. custom — свои встречи мастера, mode: "mix" — вперемешку с книжными, "own" — только свои. */
+export function rollEncounter({ distId, threat, night, custom = [], mode = "mix" }) {
+  const own = custom.filter(e => e?.title && fitsOwn(e, threat, night));
+  const base = threat === "hot" ? 6 : 10;
+  if (own.length && (mode === "own" || Math.random() < own.length / (own.length + base))) {
+    const e = pick(own), g = gangOf(distId), tw = (e.twists ?? []).map(x => String(x).trim()).filter(Boolean);
+    const sub = tw.length ? 1 + Math.floor(Math.random() * tw.length) : null;
+    const fill = (s) => String(s ?? "").replaceAll("{g}", T(g));
+    return { own: true, roll: null, sub, mooks: [], title: e.title, text: fill(e.text), stats: e.stats || "—", twist: sub ? fill(tw[sub - 1]) : "", gang: T(g), night, threat };
+  }
   let roll, list, entry, idx;
   if (threat === "hot") { roll = d(6); list = HOT; idx = roll - 1; }
   else {

@@ -42,7 +42,7 @@ const QSTATUS = { hidden: "Скрыт", offer: "Слух / предложени�
 
 /* ================================================================ настройки и состояние */
 
-const DEFAULT_STATE = { quests: [], pins: [], poi: {}, party: null, route: null, visited: [], shops: [], markets: [], night: false, clock: 0, players: {}, messages: [] };
+const DEFAULT_STATE = { quests: [], pins: [], poi: {}, party: null, route: null, visited: [], shops: [], markets: [], night: false, clock: 0, players: {}, messages: [], encounters: [], encMode: "mix" };
 
 Hooks.once("init", () => {
   game.settings.register(MID, "lang", {
@@ -69,16 +69,21 @@ Hooks.once("init", () => {
     name: "NCM.Settings.AgentName", hint: "NCM.Settings.AgentHint",
     scope: "client", config: true, type: Boolean, default: true
   });
+  game.settings.register(MID, "agentOn", {
+    name: "NCM.Settings.AgentOnName", hint: "NCM.Settings.AgentOnHint",
+    scope: "world", config: true, type: Boolean, default: true, requiresReload: true
+  });
   game.settings.register(MID, "autoPlaced", { scope: "world", config: false, type: Boolean, default: false });
   game.settings.register(MID, "scAsked", { scope: "world", config: false, type: Boolean, default: false });
   game.settings.register(MID, "notify", { name: "NCM.Settings.NotifyName", scope: "world", config: true, type: Boolean, default: true });
-  game.keybindings.register(MID, "agent", { name: "NCM.Keys.Agent", editable: [{ key: "KeyA", modifiers: ["Shift"] }], onDown: () => { Agent.toggle(); return true; } });
+  game.keybindings.register(MID, "agent", { name: "NCM.Keys.Agent", editable: [{ key: "KeyA", modifiers: ["Shift"] }], onDown: () => { if (!agentOn()) return false; Agent.toggle(); return true; } });
   game.keybindings.register(MID, "open", {
     name: "NCM.Keys.Open", editable: [{ key: "KeyM", modifiers: ["Shift"] }],
     onDown: () => { UI.toggle(); return true; }
   });
 });
 
+const agentOn = () => { try { return game.settings.get(MID, "agentOn") !== false; } catch (e) { return true; } };
 const state = () => foundry.utils.mergeObject(clone(DEFAULT_STATE), clone(game.settings.get(MID, "state") ?? {}), { inplace: false });
 async function save(mut) {
   if (!isGM()) return ui.notifications.warn(T("Карта: изменять может только мастер."));
@@ -124,13 +129,22 @@ async function setTimeMs(ms) {
   return save(s => { s.clock = Math.round((ms - T0) / 60000); });
 }
 /** Настроить Simple Calendar под Найт-Сити и выставить дату по часам карты. */
-async function setupCalendar({ holidays = true } = {}) {
+/** Дата мира в Simple Calendar сейчас (мс UTC) или null. */
+function scWorldMs() {
+  try {
+    const d = scApi()?.timestampToDate(game.time.worldTime);
+    if (!d || !Number.isFinite(d.year)) return null;
+    return Date.UTC(d.year, d.month, d.day + 1, d.hour ?? 0, d.minute ?? 0);
+  } catch (e) { return null; }
+}
+/** source: "world" — главное время мира (Simple Calendar), карта подстраивается; "map" — мир берёт время с часов карты. */
+async function setupCalendar({ holidays = true, source = "world" } = {}) {
   const a = scApi();
   if (!a) return ui.notifications.warn(T("Simple Calendar не включён в этом мире."));
   if (!isGM()) return;
   const base = await fetch(`modules/${SCID}/predefined-calendars/gregorian.json`).then(r => r.json()).catch(() => null);
   if (!base?.calendar) return ui.notifications.error(T("Не нашёл gregorian.json в Simple Calendar — обнови модуль."));
-  const ms = T0 + (state().clock ?? 0) * 60000;
+  const ms = (source === "world" ? scWorldMs() : null) ?? T0 + (state().clock ?? 0) * 60000;
   const ok = await a.configureCalendar(buildCalendar(base.calendar, new Date(ms)));
   if (!ok) return ui.notifications.error(T("Simple Calendar не принял настройки."));
   await new Promise(r => setTimeout(r, 300));
@@ -146,6 +160,19 @@ async function setupCalendar({ holidays = true } = {}) {
   await game.settings.set(MID, "scAsked", true);
   onTime(true);
   ui.notifications.info(`Simple Calendar: ${T("«")}${scName()}${T("»")}, ${fmtClock().day} ${fmtClock().time}.`);
+}
+/** Спросить, чьё время главное, и настроить календарь. */
+async function scDialog({ first = false } = {}) {
+  const wm = scWorldMs(), z = (n) => String(n).padStart(2, "0");
+  const fmt = (ms) => { const d = new Date(ms); return `${z(d.getUTCDate())}.${z(d.getUTCMonth() + 1)}.${d.getUTCFullYear()} ${z(d.getUTCHours())}:${z(d.getUTCMinutes())}`; };
+  const data = await formDialog(T("Карта Найт-Сити · Simple Calendar"), `<form class="ncm-form">
+    <p>${first ? T("Найден Simple Calendar. Настроить его под Найт-Сити?") : T("Настроить Simple Calendar под Найт-Сити?")}</p>
+    <p>${T("Календарь «")}${scName()}${T("»: григорианские месяцы и дни недели, праздники года. Часы карты потом идут по времени мира.")}</p>
+    <label>${T("Какое время оставить")}<select name="source">
+      <option value="world">${T("Время мира — карта подстроится")}${wm ? ` (${fmt(wm)})` : ""}</option>
+      <option value="map">${T("Время карты — мир перейдёт на него")} (${fmtClock().day} ${fmtClock().time})</option></select></label></form>`);
+  if (!data) { if (first) await game.settings.set(MID, "scAsked", true); return; }
+  return setupCalendar({ source: data.source });
 }
 let lastMin = null, lastNight = null;
 /** Время изменилось — обновить часы, ночь и телефон. */
@@ -184,6 +211,7 @@ async function applyOp(op, d, user) {
     case "party": return save(s => { s.party = { x: d.x, y: d.y }; });
     case "me": return save(s => { s.players[user.id] = { x: d.x, y: d.y }; });
     case "me-clear": return save(s => { delete s.players[user.id]; });
+    case "party-clear": return save(s => { s.party = null; });
     case "travel": {
       await advanceTime(d.min);
       await save(s => { if (d.who === "party") s.party = { x: d.x, y: d.y }; else s.players[d.who] = { x: d.x, y: d.y }; });
@@ -404,7 +432,7 @@ const UI = {
           <button data-act="quests" title="${T("Список заказов")}"><i class="fas fa-scroll"></i> ${T("Заказы")}</button>
           <button data-act="mode-party" title="${T("Поставить метку «Мы здесь» (вся группа)")}"><i class="fas fa-users"></i> ${T("Мы здесь")}</button>
           <button data-act="mode-me" title="${T("Поставить свою метку «Я здесь» — если группа разделилась")}"><i class="fas fa-user"></i> ${T("Я здесь")}</button>
-          <button data-act="agent" title="${T("Агент: заказы и сообщения (Shift+A)")}"><i class="fas fa-mobile-screen"></i> ${T("Агент")}<span class="ncm-agent-badge" hidden></span></button>
+          ${agentOn() ? `<button data-act="agent" title="${T("Агент: заказы и сообщения (Shift+A)")}"><i class="fas fa-mobile-screen"></i> ${T("Агент")}<span class="ncm-agent-badge" hidden></span></button>` : ""}
           ${isGM() ? `<button data-act="gen-gigs" title="${T("Разбросать случайные заказы по карте")}"><i class="fas fa-circle-question"></i> ${T("Заказы на карту")}</button>
           <button data-act="gen-shops" title="${T("Расставить случайные магазины по городу")}"><i class="fas fa-cart-shopping"></i> ${T("Магазины")}</button>
           <button data-act="gen-markets" title="${T("Расставить Ночные рынки: репутация и фиксер для входа")}"><i class="fas fa-moon"></i> ${T("Ночные рынки")}</button>
@@ -475,6 +503,7 @@ const UI = {
     if (this._lastS !== s) { this._lastS = s; this.world.style.setProperty("--inv", 1 / s); }
     this.el.classList.toggle("ncm-far", s < 0.42);
     this.el.classList.toggle("ncm-near", s >= 0.62);
+    this.el.classList.toggle("ncm-close", s >= 1.6);
   },
   fit() {
     const { w, h } = this.size(); const r = this.vp.getBoundingClientRect();
@@ -550,19 +579,33 @@ const UI = {
     const H = 1000 * aspect, P = (p) => `${(p.x * 1000).toFixed(1)},${(p.y * H).toFixed(1)}`;
     const shared = state().route;
     const mine = this.path.length ? this.path : this.route;
-    const line = (pts, cls, wps = pts) => pts.length > 1 ? `<polyline class="${cls}" points="${pts.map(P).join(" ")}"/>` +
-      wps.map((p, i) => `<circle class="${cls}-pt${i === 0 ? " start" : i === wps.length - 1 ? " end" : ""}" cx="${(p.x * 1000).toFixed(1)}" cy="${(p.y * H).toFixed(1)}" r="${i === 0 || i === wps.length - 1 ? 5 : 3}"/>`).join("") : "";
+    const line = (pts, cls, wps = pts) => !wps.length ? "" : (pts.length > 1 ? `<polyline class="${cls.split(" ").map(c => c + "-glow").join(" ")}" points="${pts.map(P).join(" ")}"/><polyline class="${cls}" points="${pts.map(P).join(" ")}"/>` : "") +
+      wps.map((p, i) => `<circle class="${cls}-pt${i === 0 ? " start" : i === wps.length - 1 ? " end" : ""}" cx="${(p.x * 1000).toFixed(1)}" cy="${(p.y * H).toFixed(1)}" r="${i === 0 || i === wps.length - 1 ? 5 : 3}"/>`).join("");
     this.el.querySelector(".ncm-svg").innerHTML = `
       <defs><filter id="ncmglow"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
       ${shared?.pts?.length > 1 ? line(shared.path ?? shared.pts, "ncm-rt ncm-rt-shared", shared.pts) : ""}
-      ${line(mine, "ncm-rt", this.route)}`;
+      ${line(mine, "ncm-rt", this.route)}
+      <line class="ncm-rt-rubber" x1="0" y1="0" x2="0" y2="0" style="display:none"/>`;
     this.renderHint();
+  },
+  /** Пунктир от последней точки маршрута к курсору — видно, куда ляжет следующий отрезок. */
+  rubber(ev) {
+    const l = this.el?.querySelector(".ncm-rt-rubber"); if (!l) return;
+    const last = this.route.at(-1);
+    if (!ev || this.mode !== "route" || !last || this.drag?.moved) { l.style.display = "none"; return; }
+    const f = this.toFrac(ev), H = 1000 * aspect;
+    l.setAttribute("x1", (last.x * 1000).toFixed(1)); l.setAttribute("y1", (last.y * H).toFixed(1));
+    l.setAttribute("x2", (f.x * 1000).toFixed(1)); l.setAttribute("y2", (f.y * H).toFixed(1));
+    l.style.display = "";
   },
   renderHint() {
     const h = this.el.querySelector(".ncm-hint");
-    const msg = { route: T("Маршрут: кликайте по карте или точкам — каждая точка добавляет поворот. Правый клик — убрать последнюю."),
+    const msg = { route: T("Маршрут: кликайте по карте или точкам — каждый клик добавляет поворот. Тяните карту мышью, чтобы сдвинуть. Правый клик — убрать последнюю точку."),
       party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку.") }[this.mode];
-    h.innerHTML = msg ? `<i class="fas fa-crosshairs"></i> ${msg} <button data-act="mode-off">${T("Готово")}</button>` : "";
+    const st = state();
+    const clr = this.mode === "party" && st.party ? `<button data-act="party-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>`
+      : this.mode === "me" && st.players?.[game.user.id] ? `<button data-act="me-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>` : "";
+    h.innerHTML = msg ? `<i class="fas fa-crosshairs"></i> ${msg} ${clr}<button data-act="mode-off">${T("Готово")}</button>` : "";
     h.classList.toggle("on", !!msg);
     this.el.querySelectorAll(".ncm-modes button").forEach(b => b.classList.toggle("on", b.dataset.act === `mode-${this.mode}`));
     this.vp.classList.toggle("ncm-pick", this.mode !== "browse");
@@ -571,7 +614,7 @@ const UI = {
   /* ------------------------------------------------ панель справа */
   renderPanel() {
     const panel = this.el.querySelector(".ncm-panel");
-    if (this.route.length > 1 || (this.mode === "route")) return this.renderRoutePanel(panel);
+    if (this.mode === "route" || (this.route.length > 1 && !this.sel)) return this.renderRoutePanel(panel);
     const p = this.sel && poiById(this.sel);
     if (!p) { panel.classList.remove("on"); panel.innerHTML = ""; return; }
     if (p.shop) return this.renderShop(panel, p);
@@ -604,7 +647,8 @@ const UI = {
           <button data-act="edit-poi" data-id="${p.id}"><i class="fas fa-pen"></i> ${T("Править")}</button>
           <button data-act="new-quest" data-id="${p.id}"><i class="fas fa-plus"></i> ${T("Заказ здесь")}</button>
           <button data-act="toggle-hide" data-id="${p.id}"><i class="fas fa-${p.hidden ? "eye" : "eye-slash"}"></i> ${p.hidden ? T("Показать игрокам") : T("Скрыть от игроков")}</button>
-          ${p.cat === "custom" ? `<button class="danger" data-act="del-pin" data-id="${p.id}"><i class="fas fa-trash"></i> ${T("Удалить точку")}</button>` : ""}` : ""}
+          ${p.id.startsWith("c") ? `<button data-act="lock-pin" data-id="${p.id}"><i class="fas fa-${p.locked ? "lock-open" : "lock"}"></i> ${p.locked ? T("Снять защиту") : T("Защитить от удаления")}</button>
+          ${p.locked ? "" : `<button class="danger" data-act="del-pin" data-id="${p.id}"><i class="fas fa-trash"></i> ${T("Удалить точку")}</button>`}` : ""}` : ""}
         </div>
       </div>`;
   },
@@ -776,6 +820,46 @@ const UI = {
     this.focus(d.x, d.y);
   },
 
+  /* ------------------------------------------------ свои встречи */
+  renderEncEditor() {
+    const panel = this.el.querySelector(".ncm-panel"), s = state(), list = s.encounters ?? [], mode = s.encMode ?? "mix";
+    this.sel = null; this.renderMarkers();
+    const TH = Object.keys(THREAT_RU);
+    panel.classList.add("on");
+    panel.innerHTML = `
+      <div class="ncm-p-head" style="--c:#ff2a6d">
+        <span class="ncm-p-cat"><i class="fas fa-dice-d20"></i> ${T("Случайные встречи")}</span>
+        <h2>${T("Свои встречи")}</h2>
+        <button class="ncm-p-x" data-act="unsel"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="ncm-p-body">
+        <p class="ncm-muted">${T("Свои встречи выпадают там, где подходят угроза района и время суток. {g} в тексте — банда района.")}</p>
+        <div class="ncm-seg"><button data-act="enc-mode" data-m="mix" class="${mode === "mix" ? "on" : ""}">${T("Вместе с книжными")}</button><button data-act="enc-mode" data-m="own" class="${mode === "own" ? "on" : ""}">${T("Только свои")}</button></div>
+        ${list.length ? list.map(e => `<div class="ncm-own">
+          <div><b>${esc(e.title)}</b><small>${(e.threats?.length ? e.threats : TH).map(t => T(THREAT_RU[t])).join(", ")} · ${e.time === "day" ? T("день") : e.time === "night" ? T("ночь") : T("день и ночь")}</small></div>
+          <button data-act="enc-edit" data-id="${e.id}" title="${T("Править")}"><i class="fas fa-pen"></i></button>
+          <button class="danger" data-act="enc-del" data-id="${e.id}" title="${T("Удалить")}"><i class="fas fa-trash"></i></button></div>`).join("")
+          : `<p class="ncm-muted">${T("Своих встреч пока нет.")}</p>`}
+        <div class="ncm-p-acts"><button data-act="enc-add"><i class="fas fa-plus"></i> ${T("Добавить встречу")}</button></div>
+      </div>`;
+  },
+  async editEncounter(id = null) {
+    const e = (state().encounters ?? []).find(x => x.id === id) ?? { id: rid(), title: "", text: "", stats: "", twists: [], threats: [], time: "any" };
+    const TH = Object.keys(THREAT_RU);
+    const data = await formDialog(id ? e.title : T("Новая встреча"), `<form class="ncm-form">
+      <label>${T("Название")}<input name="title" value="${esc(e.title)}" placeholder="${T("Например: Облава NCPD")}"></label>
+      <label>${T("Что происходит")}<textarea name="text" rows="3">${esc(e.text)}</textarea></label>
+      <label>${T("Противники / статы")}<input name="stats" value="${esc(e.stats ?? "")}" placeholder="${T("Бустеры ×4")}"></label>
+      <label>${T("Повороты — по одному в строке, выпадет случайный")}<textarea name="twists" rows="4">${esc((e.twists ?? []).join("\n"))}</textarea></label>
+      <div class="ncm-checks"><span>${T("Где (ничего не отмечено — везде)")}</span>${TH.map(t => `<label class="ncm-check"><input type="checkbox" name="th_${t}" ${e.threats?.includes(t) ? "checked" : ""}> ${T(THREAT_RU[t])}</label>`).join("")}</div>
+      <label>${T("Когда")}<select name="time"><option value="any"${e.time === "any" ? " selected" : ""}>${T("день и ночь")}</option><option value="day"${e.time === "day" ? " selected" : ""}>${T("днём")}</option><option value="night"${e.time === "night" ? " selected" : ""}>${T("ночью")}</option></select></label></form>`);
+    if (!data?.title) return this.renderEncEditor();
+    const out = { id: e.id, title: data.title, text: data.text, stats: data.stats, time: data.time,
+      twists: String(data.twists ?? "").split("\n").map(x => x.trim()).filter(Boolean).slice(0, 12), threats: TH.filter(t => data[`th_${t}`]) };
+    await save(s => { s.encounters ??= []; const i = s.encounters.findIndex(x => x.id === e.id); i >= 0 ? (s.encounters[i] = out) : s.encounters.push(out); });
+    this.renderEncEditor();
+  },
+
   /* ------------------------------------------------ квесты */
   renderQuestList() {
     const box = this.el.querySelector(".ncm-quests");
@@ -827,11 +911,13 @@ const UI = {
     });
     vp.addEventListener("wheel", (ev) => { ev.preventDefault(); const r = vp.getBoundingClientRect(); this.zoomAt(ev.deltaY < 0 ? 1.18 : 1 / 1.18, ev.clientX - r.left, ev.clientY - r.top); }, { passive: false });
     vp.addEventListener("pointerdown", (ev) => {
-      if (ev.button !== 0 || ev.target.closest("button:not(.ncm-pin), .ncm-hint, .ncm-dist")) return;
-      this.drag = { x: ev.clientX, y: ev.clientY, vx: this.view.x, vy: this.view.y, moved: false, target: ev.target };
+      if (ev.button > 2 || ev.target.closest("button:not(.ncm-pin), .ncm-hint, .ncm-dist")) return;
+      if (ev.button === 1) ev.preventDefault();
+      this.drag = { x: ev.clientX, y: ev.clientY, vx: this.view.x, vy: this.view.y, moved: false, target: ev.target, btn: ev.button };
       vp.setPointerCapture(ev.pointerId);
     });
     vp.addEventListener("pointermove", (ev) => {
+      if (this.mode === "route") this.rubber(ev);
       const d = this.drag; if (!d) return;
       const dx = ev.clientX - d.x, dy = ev.clientY - d.y;
       if (Math.abs(dx) + Math.abs(dy) > 4) d.moved = true;
@@ -839,12 +925,12 @@ const UI = {
     });
     vp.addEventListener("pointerup", (ev) => {
       const d = this.drag; this.drag = null; vp.classList.remove("ncm-grab");
-      if (d && !d.moved && !d.target.closest("button:not(.ncm-pin)")) this.onMapClick(ev, d.target);
+      if (!d || d.moved) return;
+      if (d.btn === 2) { if (this.mode === "route" && this.route.length) { this.route.pop(); this.recalc(); } return; }
+      if (d.btn === 0 && !d.target.closest("button:not(.ncm-pin)")) this.onMapClick(ev, d.target);
     });
-    vp.addEventListener("contextmenu", (ev) => {
-      ev.preventDefault();
-      if (this.mode === "route" && this.route.length) { this.route.pop(); this.recalc(); }
-    });
+    vp.addEventListener("contextmenu", (ev) => ev.preventDefault());
+    vp.addEventListener("pointerleave", () => this.rubber(null));
     this.onKey = (ev) => {
       if (!this.el) return document.removeEventListener("keydown", this.onKey, true);
       if (ev.key === "Escape") { ev.stopPropagation(); if (this.mode !== "browse") this.setMode("browse"); else this.close(); }
@@ -950,10 +1036,8 @@ const UI = {
     if (this.mode === "party") { await act("party", f); this.setMode("browse"); return; }
     if (this.mode === "me") { await act("me", f); this.setMode("browse"); return; }
     if (this.mode === "pin") {
-      const data = await formDialog(T("Новая точка"), `<form class="ncm-form"><label>${T("Название")}<input name="name" placeholder="${T("Схрон Мальстрема")}"></label>
-        <label>${T("Описание")}<textarea name="desc" rows="3"></textarea></label><label>${T("Заметки мастера")}<textarea name="notes" rows="2"></textarea></label>
-        <label class="ncm-check"><input type="checkbox" name="hidden" checked> ${T("Скрыть от игроков")}</label></form>`);
-      if (data?.name) await save(s => { s.pins.push({ id: `c${rid()}`, ...f, ...data }); });
+      const data = await pinDialog(T("Новая точка"), { hidden: true });
+      if (data?.name) { const id = `c${rid()}`; await save(s => { s.pins.push({ id, ...f, ...data }); }); this.setMode("browse"); return this.select(id); }
       this.setMode("browse"); return;
     }
     const gig = target.closest("[data-gig]");
@@ -1013,9 +1097,16 @@ const UI = {
         else if (id.startsWith("c")) { const p = s.pins.find(x => x.id === id); if (p) p.hidden = !p.hidden; }
         else { s.poi[id] = { ...(s.poi[id] ?? {}), hidden: !(s.poi[id]?.hidden) }; }
       });
-      case "del-pin": this.sel = null; return save(s => { s.pins = s.pins.filter(x => x.id !== id); });
+      case "lock-pin": return save(s => { const p = s.pins.find(x => x.id === id); if (p) p.locked = !p.locked; });
+      case "del-pin": {
+        const p = poiById(id); if (!p || p.locked) return;
+        const ok = await Dialog.confirm({ title: T("Удалить точку"), content: `<p>${T("Удалить точку «")}${esc(p.name)}${T("»? Это не отменить.")}</p>` });
+        if (!ok) return;
+        this.sel = null; return save(s => { s.pins = s.pins.filter(x => x.id !== id); });
+      }
       case "edit-poi": {
         const p = poiById(id);
+        if (id.startsWith("c")) { const data = await pinDialog(p.name, p); if (!data) return; return save(s => { Object.assign(s.pins.find(x => x.id === id) ?? {}, data); }); }
         const data = await formDialog(p.name, `<form class="ncm-form"><label>${T("Название")}<input name="name" value="${esc(p.name)}"></label>
           <label>${T("Описание (видят игроки)")}<textarea name="desc" rows="4">${esc(p.desc ?? "")}</textarea></label>
           <label>${T("Заметки мастера")}<textarea name="notes" rows="3">${esc(p.notes ?? "")}</textarea></label></form>`);
@@ -1027,9 +1118,11 @@ const UI = {
       }
       case "night": return save(s => { s.night = !s.night; });
       case "mode-me": return this.setMode("me");
-      case "agent": return Agent.toggle();
+      case "party-clear": await act("party-clear"); return this.setMode("browse");
+      case "me-clear": await act("me-clear"); return this.setMode("browse");
+      case "agent": return agentOn() && Agent.toggle();
       case "time": return advanceTime(Number(b.dataset.m));
-      case "sc-setup": return Dialog.confirm({ title: "Simple Calendar", content: `<p>${T("Настроить Simple Calendar под Найт-Сити?")}</p><p>${T("Календарь «")}${scName()}${T("»: григорианский, месяцы и дни недели по-русски, дата и время — как на часах карты (")}${fmtClock().day} ${fmtClock().time}${T("). Добавлю праздники года.")}</p>`, yes: () => setupCalendar() });
+      case "sc-setup": return scDialog();
       case "time-set": {
         const d = clockDate(), z = (n) => String(n).padStart(2, "0");
         const data = await formDialog(T("Время в Найт-Сити"), `<form class="ncm-form"><div class="ncm-row"><label>${T("Дата")}<input type="date" name="d" value="${d.getUTCFullYear()}-${z(d.getUTCMonth() + 1)}-${z(d.getUTCDate())}"></label><label>${T("Время")}<input type="time" name="t" value="${z(d.getUTCHours())}:${z(d.getUTCMinutes())}"></label></div></form>`);
@@ -1046,6 +1139,11 @@ const UI = {
       case "enc-again": { const e = this.lastEnc; if (!e) return; if (this.routeEnc?.includes(e)) return this.rollRoute(); await doEncounter(e.x, e.y, e.distId); return this.reopen(); }
       case "enc-chat": { const e = this.lastEnc; if (e) chatEnc(e, false); return ui.notifications.info(T("Встреча отправлена в чат.")); }
       case "enc-route": return this.rollRoute();
+      case "enc-clear": this.lastEnc = null; this.routeEnc = []; this.lastEncDist = null; return this.reopen();
+      case "enc-own": return this.renderEncEditor();
+      case "enc-add": case "enc-edit": return this.editEncounter(id);
+      case "enc-del": return save(s => { s.encounters = (s.encounters ?? []).filter(x => x.id !== id); }).then(() => this.renderEncEditor());
+      case "enc-mode": return save(s => { s.encMode = b.dataset.m; }).then(() => this.renderEncEditor());
       case "mook": {
         this.mookSel = b.dataset.id;
         b.closest(".ncm-mooks")?.querySelectorAll(".ncm-mook").forEach(x => x.classList.toggle("on", x === b));
@@ -1121,17 +1219,17 @@ function encBlock(x, y, distId) {
   const e = UI.lastEnc;
   const here = e && e.key === `${x.toFixed(4)},${y.toFixed(4)}`;
   return `<div class="ncm-enc">
-    <button class="ncm-enc-roll" data-act="enc" data-x="${x}" data-y="${y}" data-d="${distId ?? ""}"><i class="fas fa-dice-d20"></i> ${T("Случайная встреча")}</button>
+    <div class="ncm-enc-row"><button class="ncm-enc-roll" data-act="enc" data-x="${x}" data-y="${y}" data-d="${distId ?? ""}"><i class="fas fa-dice-d20"></i> ${T("Случайная встреча")}</button><button class="ncm-enc-own" data-act="enc-own" title="${T("Свои встречи: добавить и править")}"><i class="fas fa-list"></i></button></div>
     ${here ? encCard(e) : ""}</div>`;
 }
 function encCard(e) {
   return `<div class="ncm-enc-card t-${e.threat}">
-    <div class="ncm-enc-top"><span>${T("к10:")} ${e.roll} · ${THREAT_RU[e.threat]} · ${e.night ? T("ночь") : T("день")}</span></div>
+    <div class="ncm-enc-top"><span>${e.own ? `<i class="fas fa-pen-nib"></i> ${T("своя встреча")}` : `${T("к10:")} ${e.roll}`} · ${T(THREAT_RU[e.threat])} · ${e.night ? T("ночь") : T("день")}</span></div>
     <b>${esc(e.title)}</b><p>${esc(e.text)}</p>
-    <div class="ncm-enc-tw"><i class="fas fa-dice-six"></i> ${T("к6:")} ${e.sub} — ${esc(e.twist)}</div>
+    ${e.twist ? `<div class="ncm-enc-tw"><i class="fas fa-dice-six"></i> ${e.own ? "" : `${T("к6:")} `}${e.own ? "" : e.sub} ${e.own ? "" : "— "}${esc(e.twist)}</div>` : ""}
     ${e.stats && e.stats !== "—" ? `<div class="ncm-enc-st"><i class="fas fa-user-ninja"></i> ${T("По Корке:")} ${esc(e.stats)}</div>` : ""}
     ${mookChips(e)}
-    <div class="ncm-p-acts"><button data-act="enc-chat"><i class="fas fa-comment"></i> ${T("В чат всем")}</button><button data-act="enc-again"><i class="fas fa-rotate"></i> ${T("Перебросить")}</button></div>
+    <div class="ncm-p-acts"><button data-act="enc-chat"><i class="fas fa-comment"></i> ${T("В чат всем")}</button><button data-act="enc-again"><i class="fas fa-rotate"></i> ${T("Перебросить")}</button><button data-act="enc-clear" title="${T("Убрать встречи из окна")}"><i class="fas fa-broom"></i> ${T("Очистить")}</button></div>
   </div>`;
 }
 const MOOK_RU = { ncpd: "NCPD", ncpd_units: "Техника NCPD", ratsec: "Корп. охрана (RatSec)", civ: "Мирные", iron: "Железные Прицелы", gangsters: "Гангстеры", thugs: "Уличная шпана",
@@ -1171,7 +1269,8 @@ async function spawnMooks(id, n) {
 async function doEncounter(x, y, distId, { toGM = true } = {}) {
   const dist = DISTRICTS.find(d => d.id === distId) ?? districtAt(x, y);
   const threat = threatOf(dist, zoneAt(x, y));
-  const e = rollEncounter({ distId: dist?.id, threat, night: isNight() });
+  const st = state();
+  const e = rollEncounter({ distId: dist?.id, threat, night: isNight(), custom: st.encounters ?? [], mode: st.encMode ?? "mix" });
   e.key = `${x.toFixed(4)},${y.toFixed(4)}`; e.x = x; e.y = y; e.distId = dist?.id; e.where = streetNear(x, y)?.ru ?? dist?.ru ?? "";
   UI.lastEnc = e;
   if (toGM) chatEnc(e, true);
@@ -1388,6 +1487,19 @@ async function placeShops({ n = 30, replace = true, hidden = false, quiet = fals
 
 /* ================================================================ диалоги */
 
+/** Своя точка мастера: категория, описание, картинка для досье, защита от удаления. */
+function pinDialog(title, p = {}) {
+  const cats = Object.entries(CATS).filter(([k]) => !["shop", "market"].includes(k));
+  return formDialog(title, `<form class="ncm-form">
+    <label>${T("Название")}<input name="name" value="${esc(p.name ?? "")}" placeholder="${T("Схрон Мальстрема")}"></label>
+    <label>${T("Категория")}<select name="cat">${cats.map(([k, c]) => `<option value="${k}"${(p.cat ?? "custom") === k ? " selected" : ""}>${c.ru}</option>`).join("")}</select></label>
+    <label>${T("Описание (видят игроки)")}<textarea name="desc" rows="4">${esc(p.desc ?? "")}</textarea></label>
+    <label>${T("Картинка для досье")}<span class="ncm-fp"><input name="img" value="${esc(p.img ?? "")}" placeholder="worlds/…/bar.webp"><button type="button" data-fp="img" title="${T("Выбрать файл")}"><i class="fas fa-file-image"></i></button></span></label>
+    <label>${T("Заметки мастера")}<textarea name="notes" rows="2">${esc(p.notes ?? "")}</textarea></label>
+    <label class="ncm-check"><input type="checkbox" name="hidden" ${p.hidden ? "checked" : ""}> ${T("Скрыть от игроков")}</label>
+    <label class="ncm-check"><input type="checkbox" name="locked" ${p.locked ? "checked" : ""}> ${T("Защитить от удаления")}</label></form>`);
+}
+
 function formDialog(title, content) {
   return new Promise(resolve => {
     new Dialog({
@@ -1401,7 +1513,15 @@ function formDialog(title, content) {
         } },
         cancel: { label: T("Отмена"), callback: () => resolve(null) }
       },
-      default: "ok", close: () => resolve(null)
+      default: "ok", close: () => resolve(null),
+      render: (html) => {
+        const root = html?.[0] ?? html;
+        root?.querySelectorAll?.("[data-fp]").forEach(btn => btn.addEventListener("click", () => {
+          const inp = root.querySelector(`[name="${btn.dataset.fp}"]`);
+          const FP = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker;
+          if (FP) new FP({ type: "image", current: inp.value, callback: (path) => { inp.value = path; } }).render(true);
+        }));
+      }
     }, { classes: ["ncm-dialog"], width: 480 }).render(true);
   });
 }
@@ -1462,9 +1582,9 @@ Hooks.once("ready", () => {
     if (d.action === "dossier") return openDossier(d.id, { remote: true });
     if (d.action === "quest") { const q = state().quests.find(x => x.id === d.id); if (q) questToast(q); }
   });
-  game.modules.get(MID).api = { open: () => UI.open(), close: () => UI.close(), ui: UI, agent: () => Agent.toggle() };
+  game.modules.get(MID).api = { open: () => UI.open(), close: () => UI.close(), ui: UI, agent: () => agentOn() && Agent.toggle() };
   Agent.seen = new Set(state().messages.map(m => m.id));
-  if (game.settings.get(MID, "agentAuto")) setTimeout(() => Agent.open(), 1200);
+  if (agentOn() && game.settings.get(MID, "agentAuto")) setTimeout(() => Agent.open(), 1200);
   // Первый запуск у мастера: город сразу с магазинами и Ночными рынками
   if (game.user === game.users.activeGM && !game.settings.get(MID, "autoPlaced")) setTimeout(async () => {
     try {
@@ -1479,11 +1599,7 @@ Hooks.once("ready", () => {
   game.modules.get(MID).api.setupCalendar = setupCalendar;
   // Мастеру — один раз предложить настроить Simple Calendar
   if (game.user === game.users.activeGM && scApi() && !game.settings.get(MID, "scAsked")) {
-    setTimeout(() => !scLinked() && Dialog.confirm({
-      title: T("Карта Найт-Сити · Simple Calendar"),
-      content: `<p>${T("Найден Simple Calendar. Настроить его под Найт-Сити?")}</p><p>${T("Календарь «")}${scName()}${T("»: григорианские месяцы и дни недели по-русски, 2045 год, дата и время — как на часах карты. Потом это можно сделать кнопкой 📅 на часах карты.")}</p>`,
-      yes: () => setupCalendar(), no: () => game.settings.set(MID, "scAsked", true)
-    }), 2500);
+    setTimeout(() => !scLinked() && scDialog({ first: true }), 2500);
   }
 });
 
@@ -1492,7 +1608,7 @@ Hooks.once("ready", () => {
 Hooks.on("getSceneControlButtons", (controls) => {
   const tok = controls.find?.(c => c.name === "token");
   tok?.tools?.push({ name: "ncm", title: T("Карта Найт-Сити (Shift+M)"), icon: "fas fa-city", button: true, onClick: () => UI.toggle() });
-  tok?.tools?.push({ name: "ncm-agent", title: T("Агент — заказы и сообщения (Shift+A)"), icon: "fas fa-mobile-screen", button: true, onClick: () => Agent.toggle() });
+  if (agentOn()) tok?.tools?.push({ name: "ncm-agent", title: T("Агент — заказы и сообщения (Shift+A)"), icon: "fas fa-mobile-screen", button: true, onClick: () => Agent.toggle() });
 });
 Hooks.on("renderJournalDirectory", (app, html) => {
   const root = html instanceof HTMLElement ? html : html?.[0];

@@ -17,7 +17,9 @@
    "ScHint": "The map clock follows the “Night City 2045” calendar in Simple Calendar (Foundry world time). The 📅 button on the map clock sets the calendar up.",
    "AgentName": "Agent on startup",
    "AgentHint": "The Agent phone opens automatically when you join the game (each player sets their own).",
-   "NotifyName": "Notify players about new gigs"
+   "NotifyName": "Notify players about new gigs",
+   "AgentOnName": "Agent phone",
+   "AgentOnHint": "Show the Agent phone: the button on the map, the Shift+A key and the scene control. Off — the Agent is gone for everyone."
   },
   "Keys": {
    "Agent": "Agent (phone)",

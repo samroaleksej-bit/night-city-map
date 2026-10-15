@@ -17,11 +17,11 @@
 #ncm .ncm-search i { color: var(--c); }
 #ncm .ncm-search input { flex: 1; min-width: 0; background: none; border: none; outline: none; color: var(--txt); font: 600 15px var(--font); height: 100%; box-shadow: none; }
 #ncm .ncm-modes { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
-#ncm .ncm-modes button, #ncm .ncm-p-acts button, #ncm .ncm-q-head button:not(.ncm-p-x), #ncm .ncm-hint button, #ncm .ncm-qc-acts button {
+#ncm .ncm-seg button, #ncm .ncm-own button, #ncm .ncm-enc-own, #ncm .ncm-modes button, #ncm .ncm-p-acts button, #ncm .ncm-q-head button:not(.ncm-p-x), #ncm .ncm-hint button, #ncm .ncm-qc-acts button {
   display: inline-flex; align-items: center; gap: 7px; width: auto; height: 34px; padding: 0 14px; margin: 0; border: 1px solid var(--c); border-radius: 0; background: rgba(0,240,255,.06);
   color: var(--c); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; line-height: 1;
   clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); transition: all .15s; }
-#ncm .ncm-modes button:hover, #ncm .ncm-p-acts button:hover, #ncm .ncm-qc-acts button:hover { background: var(--c); color: #001014; box-shadow: 0 0 16px var(--c); }
+#ncm .ncm-seg button:hover, #ncm .ncm-own button:hover, #ncm .ncm-enc-own:hover, #ncm .ncm-modes button:hover, #ncm .ncm-p-acts button:hover, #ncm .ncm-qc-acts button:hover { background: var(--c); color: #001014; box-shadow: 0 0 16px var(--c); }
 #ncm .ncm-modes button.on { background: var(--y); border-color: var(--y); color: #111; box-shadow: 0 0 18px rgba(252,238,10,.6); }
 #ncm button.danger { border-color: var(--m) !important; color: var(--m) !important; }
 #ncm button.danger:hover { background: var(--m) !important; color: #fff !important; }
@@ -39,7 +39,9 @@
 #ncm .ncm-viewport { position: relative; overflow: hidden; cursor: grab; background: radial-gradient(ellipse at center, #0d1420, #05050a 70%); touch-action: none; }
 #ncm .ncm-viewport.ncm-grab { cursor: grabbing; }
 #ncm .ncm-viewport.ncm-pick { cursor: crosshair; }
-#ncm .ncm-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; backface-visibility: hidden; }
+#ncm .ncm-world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+/* слой «замораживается» только пока карту двигают — иначе на сильном зуме текст остаётся мыльным */
+#ncm.ncm-moving .ncm-world, #ncm .ncm-world.ncm-anim { will-change: transform; }
 #ncm.ncm-moving .ncm-streets, #ncm.ncm-moving .ncm-name, #ncm.ncm-moving .ncm-dist { visibility: hidden; }
 #ncm.ncm-moving .ncm-pin { pointer-events: none; }
 #ncm .ncm-world.ncm-anim { transition: transform .45s cubic-bezier(.2,.8,.3,1); }
@@ -436,3 +438,31 @@
 #ncm .ncm-mlock { display: grid; grid-template-columns: 28px 1fr; column-gap: 8px; padding: 12px; margin: 6px 0 10px; border: 1px dashed rgba(155, 107, 255, .6); background: rgba(20, 0, 40, .4); }
 #ncm .ncm-mlock i { grid-row: span 2; font-size: 20px; color: #9b6bff; align-self: center; }
 #ncm .ncm-mlock span { color: var(--mut); font-size: 13px; }
+
+/* ---- v0.13: читаемость на зуме, маршрут, свои точки и встречи ---- */
+#ncm.ncm-close .ncm-pin .ncm-name { opacity: 1; transform: none; }
+#ncm.ncm-close .ncm-pin .ncm-name { font-size: 12px; }
+#ncm .ncm-rt { stroke-width: 7; filter: drop-shadow(0 0 3px rgba(0,0,0,.9)); }
+#ncm .ncm-rt-glow { fill: none; stroke: rgba(5,5,12,.85); stroke-width: 13; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+#ncm .ncm-rt-shared-glow { stroke: rgba(5,5,12,.6); }
+#ncm .ncm-rt-rubber { stroke: var(--y); stroke-width: 3; stroke-dasharray: 4 6; vector-effect: non-scaling-stroke; opacity: .85; pointer-events: none; }
+#ncm .ncm-enc-row { display: flex; gap: 6px; }
+#ncm .ncm-enc-row .ncm-enc-roll { flex: 1; }
+#ncm .ncm-enc-own { flex: 0 0 auto; width: 40px; }
+#ncm .ncm-seg { display: flex; gap: 6px; margin: 8px 0 12px; }
+#ncm .ncm-seg button { flex: 1; }
+#ncm .ncm-seg button.on { background: var(--y); color: #000; }
+#ncm .ncm-own { display: flex; align-items: center; gap: 6px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+#ncm .ncm-own > div { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+#ncm .ncm-own small { color: #8a90a8; font-size: 11px; }
+#ncm .ncm-own button { flex: 0 0 auto; width: 34px; }
+.ncm-dialog .ncm-fp { display: flex; gap: 6px; }
+.ncm-dialog .ncm-fp input { flex: 1; }
+.ncm-dialog .ncm-fp button { flex: 0 0 36px; }
+.ncm-dialog .ncm-checks { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 6px 0; }
+.ncm-dialog .ncm-checks > span { width: 100%; font-size: 12px; opacity: .8; }
+#ncm .ncm-enc-own { height: 38px; margin: 8px 0; padding: 0; justify-content: center; --c: var(--m); }
+#ncm .ncm-seg button, #ncm .ncm-own button { justify-content: center; }
+#ncm .ncm-own button { padding: 0; }
+#ncm .ncm-seg button.on { background: var(--y); border-color: var(--y); color: #111; }
+#ncm .ncm-seg button { height: auto; min-height: 34px; padding: 6px 8px; font-size: 11px; line-height: 1.2; text-align: center; }
