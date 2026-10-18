@@ -1,3 +1,14 @@
+## 0.15.1
+
+- Fixed: on hosts that serve module files from another domain (The Forge, S3, CDN) the street grid could not be read, so Shops, Night Markets and Gigs on map did nothing and the Roads overlay stayed empty. The grid now loads there; if it still can't, shops and gigs are placed by district and you get a warning instead of silence.
+- Agent: delete messages. The GM can delete any message or clear a whole conversation; players can delete their own.
+- README: map image sizes for those who swap the background.
+
+## 0.15.1
+
+- Исправлено: на хостингах, где файлы модулей идут с другого домена (The Forge, S3, CDN), не читалась сетка улиц — кнопки «Магазины», «Ночные рынки», «Заказы на карту» ничего не делали, а «Дороги» были пустыми. Теперь сетка грузится и там, а если нет — точки ставятся по районам с предупреждением.
+- «Агент»: удаление сообщений. Мастер удаляет любые или чистит переписку целиком, игрок — свои.
+
 ## 0.15.0 — roads
 
 - New **Roads** button (GM): shows the street grid that routes follow, right on the map.

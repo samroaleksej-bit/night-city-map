@@ -473,3 +473,9 @@
 #ncm .ncm-range { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; font-size: 12px; color: #8a90a8; }
 #ncm .ncm-range input { width: 100%; }
 #ncm.ncm-roadsmode .ncm-markers { opacity: .35; }
+#ncm-agent .ag-msg { position: relative; }
+#ncm-agent .ag-del { position: absolute; top: 2px; right: 4px; width: 18px; height: 18px; padding: 0; border: 0; background: none; color: #8a90a8; font-size: 11px; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .15s; }
+#ncm-agent .ag-msg:hover .ag-del, #ncm-agent .ag-del:focus-visible { opacity: 1; }
+#ncm-agent .ag-del:hover { color: #ff2a6d; }
+#ncm-agent .ag-tools { display: flex; justify-content: flex-end; padding: 4px 10px 0; }
+#ncm-agent .ag-tools button { width: auto; height: auto; padding: 3px 8px; font-size: 11px; border: 1px solid rgba(255,42,109,.5); background: none; color: #ff2a6d; cursor: pointer; }

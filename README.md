@@ -80,6 +80,14 @@ Foundry v12. The system is Cyberpunk RED Core (the map itself works with any sys
 
 Recommended: [Simple Calendar](https://foundryvtt.com/packages/foundryvtt-simple-calendar), *Night City Gang & Corp Mook Pack*.
 
+## Using your own map
+
+The built-in map image is **2079 × 2025 px** (about 1.03 : 1). Places, districts and streets are stored as fractions of the image, so any image with the same proportions lines up; a different shape or a different city needs your own places (Places → Remove all built-in, then add yours).
+- **Map image** (settings): your background. Any resolution; 2000–4000 px wide works well.
+- **Map width, km** (settings, default 14): the real width of the image, used for distances and travel time.
+- **Road grid image** (settings): the grid routes follow, **693 × 675 px** for the built-in map (a third of the map size). White = street, gray = land, black = water. Same proportions as your map; any resolution.
+- Small road fixes can be painted right on the map with the **Roads** button.
+
 ## Language
 
 The module speaks English and Russian. By default it follows Foundry's language; you can force a language in the module settings (**Map language**). English Foundry gets the English map image, Russian Foundry gets the Russian-labeled one.

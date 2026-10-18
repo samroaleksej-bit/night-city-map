@@ -219,6 +219,10 @@ async function applyOp(op, d, user) {
     case "me": return save(s => { s.players[user.id] = { x: d.x, y: d.y }; });
     case "me-clear": return save(s => { delete s.players[user.id]; });
     case "party-clear": return save(s => { s.party = null; });
+    case "msg-del": {
+      const ids = new Set(d.ids ?? []);
+      return save(s => { s.messages = s.messages.filter(m => !ids.has(m.id) || !(user?.isGM || m.fromUser === user?.id)); });
+    }
     case "buy": return gmApproveBuy(d, user);
     case "travel": {
       await advanceTime(d.min);
@@ -309,21 +313,32 @@ function applyRoadEdits(force = false) {
   return true;
 }
 const roadsSrc = () => { try { return game.settings.get(MID, "roadsImage") || `modules/${MID}/assets/roads.png`; } catch (e) { return `modules/${MID}/assets/roads.png`; } };
+/** Сетка улиц: картинка → массив клеток. Устойчиво к хостингам, где файлы модулей отдаются с другого домена (The Forge, S3, CDN):
+ *  сначала картинка с crossOrigin, если холст «испачкан» — тот же файл через fetch → blob (тот же источник). Ошибка — честный false, а не вечное ожидание. */
+function gridFromImage(img) {
+  const c = document.createElement("canvas"); c.width = img.naturalWidth || img.width; c.height = img.naturalHeight || img.height;
+  const ctx = c.getContext("2d", { willReadFrequently: true }); ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(0, 0, c.width, c.height).data; // бросает SecurityError на «чужой» картинке
+  GRID.w = c.width; GRID.h = c.height; GRID.cell = new Uint8Array(c.width * c.height);
+  for (let i = 0; i < GRID.cell.length; i++) { const v = d[i * 4]; GRID.cell[i] = v > 200 ? 1 : v > 60 ? 2 : 0; }
+  GRID.base = GRID.cell.slice(); applyRoadEdits(true);
+  return true;
+}
+const loadImg = (src, cors) => new Promise((res, rej) => {
+  const img = new Image(); if (cors) img.crossOrigin = "anonymous";
+  const t = setTimeout(() => rej(new Error("timeout")), 15000);
+  img.onload = () => { clearTimeout(t); res(img); }; img.onerror = () => { clearTimeout(t); rej(new Error("load " + src)); };
+  img.src = src;
+});
 function loadGrid() {
-  GRID.ready ??= new Promise(res => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
-      const ctx = c.getContext("2d"); ctx.drawImage(img, 0, 0);
-      const d = ctx.getImageData(0, 0, img.width, img.height).data;
-      GRID.w = img.width; GRID.h = img.height; GRID.cell = new Uint8Array(img.width * img.height);
-      for (let i = 0; i < GRID.cell.length; i++) { const v = d[i * 4]; GRID.cell[i] = v > 200 ? 1 : v > 60 ? 2 : 0; }
-      GRID.base = GRID.cell.slice(); applyRoadEdits(true);
-      res(true);
-    };
-    img.onerror = () => res(false);
-    img.src = roadsSrc();
-  });
+  GRID.ready ??= (async () => {
+    const src = roadsSrc();
+    for (const step of [() => loadImg(src, true), async () => { const r = await fetch(src); if (!r.ok) throw new Error(r.status); return loadImg(URL.createObjectURL(await r.blob()), false); }, () => loadImg(src, false)]) {
+      try { if (gridFromImage(await step())) return true; } catch (e) { console.warn(`${MID} | road grid:`, e?.message ?? e); }
+    }
+    ui.notifications?.warn(T("Карта: не удалось прочитать сетку улиц. Маршруты пойдут по прямой, магазины встанут без привязки к улицам."));
+    return false;
+  })();
   return GRID.ready;
 }
 const COST = [Infinity, 1, 7]; // вода / улица / дворы и пустыри
@@ -485,6 +500,7 @@ const UI = {
         <button class="ncm-p-x" data-act="mode-off"><i class="fas fa-xmark"></i></button>
       </div>
       <div class="ncm-p-body">
+        ${GRID.cell ? "" : `<div class="ncm-warn hot"><i class="fas fa-triangle-exclamation"></i> ${T("Сетка улиц не загрузилась (см. консоль F12). Мазки сохраняются, но показать их не на чем.")}</div>`}
         <p class="ncm-muted">${T("Голубое — улицы, по ним идут маршруты. Синее — вода, через неё не пройти. Рисуй левой кнопкой, карту двигай правой.")}</p>
         <div class="ncm-seg">${[["road", T("Улица")], ["land", T("Стереть улицу")], ["water", T("Вода")]].map(([k, l]) => `<button data-act="brush" data-t="${k}" class="${b.t === k ? "on" : ""}">${l}</button>`).join("")}</div>
         <label class="ncm-range">${T("Ширина кисти")}<input type="range" data-brushw min="0.002" max="0.03" step="0.001" value="${b.w}"></label>
@@ -1541,7 +1557,21 @@ const NO_SHOPS = new Set(["norcal", "morro", "oldcorp", "delbay", "sanbay"]);
 const PRICEY = { exec: 1.3, westbrook: 1.2, marina: 1.1, glen: 1.05 };
 
 /** Случайные точки на настоящих улицах (не пустыри, не Зона Поражения), не ближе minD к занятым. */
+/** Без сетки улиц: точки вокруг центров районов. */
+function districtSpots(n, taken, minD, skip = NO_SHOPS) {
+  const ds = DISTRICTS.filter(d => !skip.has(d.id) && !["delbay", "sanbay"].includes(d.id)), out = [];
+  let tries = 0;
+  while (out.length < n && tries++ < n * 400 && ds.length) {
+    const d = ds[Math.floor(Math.random() * ds.length)];
+    const x = d.x + (Math.random() - .5) * 0.07, y = d.y + (Math.random() - .5) * 0.07;
+    if (districtAt(x, y)?.id !== d.id || zoneAt(x, y) === "hot") continue;
+    if (taken.some(p => Math.hypot(p.x - x, (p.y - y) * aspect) < minD)) continue;
+    out.push({ x, y, d }); taken.push({ x, y });
+  }
+  return out;
+}
 function streetSpots(n, taken, minD = 0.022) {
+  if (!GRID.cell) return districtSpots(n, taken, minD);
   const { w, h, cell } = GRID, out = [];
   let tries = 0;
   while (out.length < n && tries++ < n * 400) {
@@ -1571,7 +1601,7 @@ async function genMarketsDialog() {
   return placeMarkets({ n: Number(data.count) || 6, lo: Number(data.rmin) || 0, hi: Number(data.rmax) || 0, replace: !!data.replace, hidden: !!data.hidden });
 }
 async function placeMarkets({ n = 6, lo = 2, hi = 7, replace = true, hidden = false, quiet = false } = {}) {
-  if (!(await loadGrid())) return ui.notifications.error(T("Карта: не загрузилась сетка улиц (assets/roads.png)."));
+  await loadGrid();
   n = Math.max(1, Math.min(20, n));
   lo = Math.max(0, Math.min(10, lo)); hi = Math.max(0, Math.min(10, hi)); if (hi < lo) [lo, hi] = [hi, lo];
   const data = { hidden };
@@ -1601,7 +1631,7 @@ async function genShopsDialog() {
   return placeShops({ n: Number(data.count) || 30, replace: !!data.replace, hidden: !!data.hidden });
 }
 async function placeShops({ n = 30, replace = true, hidden = false, quiet = false } = {}) {
-  if (!(await loadGrid())) return ui.notifications.error(T("Карта: не загрузилась сетка улиц (assets/roads.png)."));
+  await loadGrid();
   n = Math.max(1, Math.min(120, n));
   const data = { hidden };
   const st = state(), existing = replace ? [] : (st.shops ?? []);
@@ -1853,13 +1883,18 @@ async function genGigsDialog() {
     <label>${T("Статус")}<select name="status"><option value="offer">${T("Слух — видят игроки («?»)")}</option><option value="hidden">${T("Скрыт — только мастер")}</option></select></label>
     <label class="ncm-check"><input type="checkbox" name="replace"> ${T("Убрать старые невзятые заказы с карты")}</label></form>`);
   if (!data) return;
-  await loadGrid();
+  const gridOk = await loadGrid();
   const n = Math.max(1, Math.min(30, Number(data.count) || 6));
   const pois = allPois().filter(p => !p.hidden && !p.shop && !p.market);
   const { w, h, cell } = GRID, out = [];
   const taken = [...allPois(), ...state().quests.filter(q => q.x != null)].map(p => ({ x: p.x, y: p.y }));
   let tries = 0;
-  while (out.length < n && tries++ < n * 500) {
+  if (!gridOk) for (const sp of districtSpots(n, taken, 0.025, new Set(["norcal", "morro"]))) {
+    const g = rollGig(pois, { distOf: (p) => districtAt(p.x, p.y)?.id }), where = streetNear(sp.x, sp.y)?.ru ?? sp.d.ru;
+    g.title = `${g.jtype}: ${sp.d.ru}`; g.desc = `${T("Встреча с контактом:")} ${where}.\n` + g.desc;
+    out.push({ id: rid(), ...g, x: sp.x, y: sp.y, status: data.status === "hidden" ? "hidden" : "offer" });
+  }
+  while (gridOk && out.length < n && tries++ < n * 500) {
     const i = Math.floor(Math.random() * cell.length);
     if (cell[i] !== 1) continue;
     const x = (i % w) / (w - 1), y = ((i / w) | 0) / (h - 1);
@@ -1985,7 +2020,9 @@ const Agent = {
     if (isGM() && this.chatWith) list = all.filter(m => m.to === "all" || m.to === this.chatWith || m.fromUser === this.chatWith);
     return `${isGM() ? `<div class="ag-to">${T("Кому:")} <select data-ag-to><option value="all">${T("Всем")}</option>${players.map(u => `<option value="${u.id}"${this.chatWith === u.id ? " selected" : ""}>${esc(u.character?.name ?? u.name)}</option>`).join("")}</select>
         ${T("От:")} <input data-ag-from value="${esc(this.from ?? T("Фиксер"))}"></div>` : ""}
+      ${isGM() && list.length ? `<div class="ag-tools"><button data-ag="del-all" title="${T("Удалить все сообщения в этом списке")}"><i class="fas fa-trash"></i> ${this.chatWith ? T("Очистить переписку") : T("Очистить все чаты")}</button></div>` : ""}
       <div class="ag-msgs">${list.length ? list.map(m => `<div class="ag-msg ${m.fromUser === game.user.id ? "out" : "in"}${m.to === "all" ? " all" : ""}">
+          ${isGM() || m.fromUser === game.user.id ? `<button class="ag-del" data-ag="del" data-id="${m.id}" title="${T("Удалить сообщение")}">✕</button>` : ""}
           <div class="ag-m-h"><b>${esc(fromName(m))}</b>${isGM() && m.to !== "all" && m.to !== "gm" ? ` → ${esc(game.users.get(m.to)?.name ?? "")}` : ""}${m.to === "all" ? T(" · всем") : ""}<span>${t(m)}</span></div>
           <div class="ag-m-t">${esc(m.text).replace(/\n/g, "<br>")}</div></div>`).join("") : `<p class="ag-empty">${T("Нет сообщений. Сеть молчит.")}</p>`}</div>
       <div class="ag-compose"><textarea data-ag-text rows="2" placeholder="${isGM() ? T("Сообщение от фиксера…") : T("Ответить мастеру…")}"></textarea><button data-ag="send"><i class="fas fa-paper-plane"></i></button></div>`;
@@ -2026,6 +2063,12 @@ const Agent = {
       case "mini": return this.mini();
       case "tab": this.tab = b.dataset.t; if (this.tab === "msg") this.markSeen(); return this.render();
       case "send": return this.send();
+      case "del": return act("msg-del", { ids: [b.dataset.id] });
+      case "del-all": {
+        const w = this.chatWith, ids = this.msgs().filter(m => !w || m.to === "all" || m.to === w || m.fromUser === w).map(m => m.id);
+        const ok = await Dialog.confirm({ title: T("Агент"), content: `<p>${T("Удалить сообщений:")} ${ids.length}? ${T("Их не увидит никто, и это не отменить.")}</p>` });
+        return ok && act("msg-del", { ids });
+      }
       case "map": return UI.open();
       case "take": return act("take", { id: b.dataset.id });
       case "set-me": return UI.open().then(() => setTimeout(() => UI.setMode("me"), 150));

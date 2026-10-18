@@ -1153,5 +1153,13 @@ export default {
  "Сбросить правки": "Reset edits",
  "Своя карта? Нарисуй сетку целиком (белое — улицы, серое — суша, чёрное — вода) и укажи файл в настройках модуля.": "Your own map? Draw a full grid (white streets, gray land, black water) and set the file in the module settings.",
  "Рисуй дороги левой кнопкой мыши, двигай карту правой.": "Paint roads with the left mouse button, move the map with the right.",
- "Сбросить все свои правки дорог?": "Reset all your road edits?"
+ "Сбросить все свои правки дорог?": "Reset all your road edits?",
+ "Карта: не удалось прочитать сетку улиц. Маршруты пойдут по прямой, магазины встанут без привязки к улицам.": "Map: couldn't read the street grid. Routes will go in straight lines, shops will be placed without snapping to streets.",
+ "Сетка улиц не загрузилась (см. консоль F12). Мазки сохраняются, но показать их не на чем.": "The street grid didn't load (see the F12 console). Strokes are saved but there's nothing to draw them on.",
+ "Удалить все сообщения в этом списке": "Delete all messages in this list",
+ "Очистить переписку": "Clear conversation",
+ "Очистить все чаты": "Clear all chats",
+ "Удалить сообщение": "Delete message",
+ "Удалить сообщений:": "Delete messages:",
+ "Их не увидит никто, и это не отменить.": "Nobody will see them anymore, and this can't be undone."
 };
