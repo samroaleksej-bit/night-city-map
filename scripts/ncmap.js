@@ -42,7 +42,7 @@ const QSTATUS = { hidden: "Скрыт", offer: "Слух / предложени�
 
 /* ================================================================ настройки и состояние */
 
-const DEFAULT_STATE = { quests: [], pins: [], poi: {}, party: null, route: null, visited: [], shops: [], markets: [], night: false, clock: 0, players: {}, messages: [], encounters: [], encMode: "mix", roads: [] };
+const DEFAULT_STATE = { quests: [], pins: [], poi: {}, party: null, route: null, visited: [], shops: [], markets: [], night: false, clock: 0, players: {}, messages: [], contacts: [], encounters: [], encMode: "mix", roads: [] };
 
 Hooks.once("init", () => {
   game.settings.register(MID, "lang", {
@@ -1727,7 +1727,7 @@ async function doPurchase(actor, it) {
 
 /* ================================================================ экспорт и импорт мест */
 
-const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests", "roads"];
+const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests", "roads", "contacts"];
 function exportData() {
   const s = state(), out = { module: MID, version: game.modules.get(MID)?.version, ...Object.fromEntries(EXPORT_KEYS.map(k => [k, s[k]])) };
   const dl = foundry.utils.saveDataToFile ?? globalThis.saveDataToFile;
@@ -2008,13 +2008,14 @@ const Agent = {
   render() {
     if (!this.el) return;
     const { time } = fmtClock();
-    const body = this.tab === "msg" ? this.renderMsgs() : this.tab === "jobs" ? this.renderJobs() : this.renderMe();
+    const body = this.tab === "msg" ? this.renderMsgs() : this.tab === "jobs" ? this.renderJobs() : this.tab === "contacts" ? this.renderContacts() : this.renderMe();
     this.el.innerHTML = `<div class="ag-phone">
       <div class="ag-top"><span>${time}</span><span class="ag-net">NCNET ▮▮▮▯ 5G</span><button data-ag="mini" title="${T("Свернуть")}">▁</button><button data-ag="close" title="${T("Закрыть")}">✕</button></div>
       <div class="ag-head"><b>AGENT</b><small>${esc(game.user.character?.name ?? game.user.name)}</small></div>
       <div class="ag-body">${body}</div>
       <nav class="ag-nav">
         <button data-ag="tab" data-t="msg" class="${this.tab === "msg" ? "on" : ""}"><i class="fas fa-comment-dots"></i>${T("Чаты")}</button>
+        <button data-ag="tab" data-t="contacts" class="${this.tab === "contacts" ? "on" : ""}"><i class="fas fa-address-book"></i>${T("Контакты")}</button>
         <button data-ag="tab" data-t="jobs" class="${this.tab === "jobs" ? "on" : ""}"><i class="fas fa-briefcase"></i>${T("Заказы")}</button>
         <button data-ag="tab" data-t="me" class="${this.tab === "me" ? "on" : ""}"><i class="fas fa-location-dot"></i>${T("Я")}</button>
         <button data-ag="map"><i class="fas fa-map"></i>${T("Карта")}</button>
@@ -2036,6 +2037,17 @@ const Agent = {
           <div class="ag-m-h">${m.call ? `<i class="fas fa-phone-volume" title="${T("Из звонка")}"></i> ` : ""}<b>${esc(fromName(m))}</b>${isGM() && m.to !== "all" && m.to !== "gm" ? ` → ${esc(game.users.get(m.to)?.name ?? "")}` : ""}${m.to === "all" ? T(" · всем") : ""}<span>${t(m)}</span></div>
           <div class="ag-m-t">${esc(m.text).replace(/\n/g, "<br>")}</div></div>`).join("") : `<p class="ag-empty">${T("Нет сообщений. Сеть молчит.")}</p>`}</div>
       <div class="ag-compose"><textarea data-ag-text rows="2" placeholder="${isGM() ? T("Сообщение от фиксера…") : T("Ответить мастеру…")}"></textarea><button data-ag="send"><i class="fas fa-paper-plane"></i></button></div>`;
+  },
+  contacts() { const s = state(); return (s.contacts ?? []).filter(k => isGM() || k.who === "all" || (k.who ?? []).includes?.(game.user.id)); },
+  renderContacts() {
+    const ks = this.contacts().slice().sort((a, b) => a.name.localeCompare(b.name));
+    const seen = (k) => k.who === "all" ? T("все") : (k.who ?? []).map(id => game.users.get(id)?.character?.name ?? game.users.get(id)?.name).filter(Boolean).join(", ") || T("никто");
+    return `<div class="ag-contacts">${isGM() ? `<button class="ag-add" data-ag="k-add"><i class="fas fa-user-plus"></i> ${T("Добавить контакт")}</button>` : ""}
+      ${ks.length ? ks.map(k => `<div class="ag-k">
+        <div class="ag-k-pic">${k.img ? `<img src="${esc(k.img)}" alt="">` : `<i class="fas fa-user-secret"></i>`}</div>
+        <div class="ag-k-info"><b>${esc(k.name)}</b>${k.note ? `<small>${esc(k.note)}</small>` : ""}${isGM() ? `<small class="ag-k-who"><i class="fas fa-eye"></i> ${esc(seen(k))}</small>` : ""}</div>
+        <div class="ag-k-act"><button data-ag="k-call" data-id="${k.id}" title="${T("Позвонить")}"><i class="fas fa-phone"></i></button><button data-ag="k-msg" data-id="${k.id}" title="${T("Написать")}"><i class="fas fa-comment"></i></button>${isGM() ? `<button data-ag="k-edit" data-id="${k.id}" title="${T("Править")}"><i class="fas fa-pen"></i></button><button data-ag="k-del" data-id="${k.id}" title="${T("Удалить")}"><i class="fas fa-trash"></i></button>` : ""}</div>
+      </div>`).join("") : `<p class="ag-empty">${isGM() ? T("Контактов нет. Добавь фиксеров и NPC — игроки смогут им звонить.") : T("Контактов пока нет.")}</p>`}</div>`;
   },
   renderJobs() {
     const qs = questsVisible().filter(q => isGM() ? q.status !== "done" && q.status !== "failed" : ["active", "offer"].includes(q.status));
@@ -2080,6 +2092,24 @@ const Agent = {
         const ok = await Dialog.confirm({ title: T("Агент"), content: `<p>${T("Удалить сообщений:")} ${ids.length}? ${T("Их не увидит никто, и это не отменить.")}</p>` });
         return ok && act("msg-del", { ids });
       }
+      case "k-add": return contactDialog();
+      case "k-edit": return contactDialog(state().contacts.find(k => k.id === b.dataset.id));
+      case "k-del": {
+        const k = state().contacts.find(x => x.id === b.dataset.id); if (!k) return;
+        const ok = await Dialog.confirm({ title: T("Контакты"), content: `<p>${T("Удалить контакт")} «${esc(k.name)}»?</p>` });
+        return ok && save(s => { s.contacts = s.contacts.filter(x => x.id !== k.id); });
+      }
+      case "k-call": {
+        const k = this.contacts().find(x => x.id === b.dataset.id); if (!k) return;
+        return isGM() ? Call.dialog({ from: k.name, img: k.img, to: k.who !== "all" && k.who?.length === 1 ? k.who[0] : undefined }) : Call.dial(k);
+      }
+      case "k-msg": {
+        const k = this.contacts().find(x => x.id === b.dataset.id); if (!k) return;
+        if (isGM()) this.from = k.name;
+        this.tab = "msg"; this.markSeen(); this.render();
+        const ta = this.el?.querySelector("[data-ag-text]"); if (ta && !isGM()) { ta.value = `@${k.name} `; } ta?.focus();
+        return;
+      }
       case "map": return UI.open();
       case "take": return act("take", { id: b.dataset.id });
       case "set-me": return UI.open().then(() => setTimeout(() => UI.setMode("me"), 150));
@@ -2119,6 +2149,8 @@ const Ring = {
       ring(); this.timer = setInterval(ring, 2100);
     } catch (e) { /* без звука */ }
   },
+  /** Гудки у звонящего, пока на том конце не ответили. */
+  back() { this.stop(); try { if (!this.synth()) return; const b = () => this.tone(this.ctx.currentTime + 0.02, 425, 425, 0.9, "sine", 0.05); b(); this.timer = setInterval(b, 3000); } catch (e) { /* */ } },
   stop() { if (this.audio) { this.audio.pause(); this.audio = null; } clearInterval(this.timer); this.timer = null; },
   /** Короткий сигнал: соединение (up) или сброс (down). */
   blip(up) { try { if (!this.synth()) return; const t = this.ctx.currentTime + 0.02; up ? (this.tone(t, 880, 1320, 0.09, "sine", 0.09), this.tone(t + 0.1, 1320, 1760, 0.09, "sine", 0.09)) : this.tone(t, 900, 300, 0.25, "sawtooth", 0.06); } catch (e) { /* */ } }
@@ -2151,10 +2183,26 @@ const Call = {
     emit({ action: "call", c });
     this.render();
   },
+  /** Игрок звонит контакту: вызов уходит мастеру, тот отвечает от имени контакта. */
+  dial(k) {
+    if (!k) return;
+    if (!game.users.activeGM) return ui.notifications.warn(T("Абонент недоступен: мастера нет в игре."));
+    if (this.cur) return;
+    const c = { id: rid(), from: k.name, img: k.img ?? "", to: "gm", caller: game.user.id, callerName: game.user.character?.name ?? game.user.name };
+    this.cur = { ...c, gm: false, outgoing: true, phase: "out", lines: [], t0: Date.now() };
+    emit({ action: "call", c }); Ring.back(); this.render();
+    setTimeout(() => { const x = this.cur; if (x?.id === c.id && x.phase === "out") { emit({ action: "call-ans", id: c.id, ok: false, user: game.user.id }); Ring.stop(); x.phase = "over"; x.noAnswer = true; this.render(); setTimeout(() => this.cur?.id === c.id && this.close(), 3000); } }, 45000);
+  },
   onSocket(d) {
     const c = this.cur;
     switch (d.action) {
       case "call": {
+        if (d.c.to === "gm") { // игрок звонит контакту — отвечает мастер
+          if (!isGM()) return;
+          if (c && c.phase === "live") return emit({ action: "call-end", id: d.c.id, busy: true });
+          this.cur = { ...d.c, gm: true, incoming: true, phase: "ring", lines: [], ans: { [d.c.caller]: "ring" }, t0: Date.now() };
+          Ring.start(); return this.render();
+        }
         if (isGM() || (d.c.to !== "all" && d.c.to !== game.user.id)) return;
         if (c && c.phase === "live") return emit({ action: "call-ans", id: d.c.id, ok: false, busy: true, user: game.user.id });
         this.cur = { ...d.c, gm: false, phase: "ring", lines: [], t0: Date.now() };
@@ -2171,6 +2219,10 @@ const Call = {
         if (!Object.values(c.ans).some(v => v === "ring" || v === "ok")) { c.phase = "over"; Ring.blip(false); setTimeout(() => this.cur?.id === d.id && this.close(), 3500); }
         return this.render();
       }
+      case "call-ok": {
+        if (!c || c.id !== d.id || c.phase !== "out" || c.gm) return;
+        Ring.stop(); Ring.blip(true); c.phase = "live"; c.t1 = Date.now(); return this.render();
+      }
       case "call-sync": if (c && c.id === d.id && d.user === game.user.id) { c.lines = d.lines; this.render(); } return;
       case "call-line": {
         if (!c || c.id !== d.id || (!c.gm && c.phase !== "live")) return;
@@ -2178,6 +2230,7 @@ const Call = {
       }
       case "call-end": {
         if (!c || c.id !== d.id) return;
+        if (d.busy) c.busyEnd = true;
         Ring.stop(); if (c.phase === "live") Ring.blip(false);
         c.phase = "over"; this.render(); setTimeout(() => this.cur?.id === d.id && this.close(), 2500); return;
       }
@@ -2187,11 +2240,13 @@ const Call = {
     const c = this.cur; if (!c) return;
     Ring.stop(); Ring.blip(true);
     c.phase = "live"; c.t1 = Date.now();
+    if (c.incoming) { c.ans[c.caller] = "ok"; emit({ action: "call-ok", id: c.id }); return this.render(); }
     emit({ action: "call-ans", id: c.id, ok: true, user: game.user.id });
     this.render();
   },
   decline() {
     const c = this.cur; if (!c) return;
+    if (c.incoming) { Ring.stop(); emit({ action: "call-end", id: c.id }); return this.close(); }
     Ring.stop(); if (c.phase === "live") Ring.blip(false);
     emit({ action: "call-ans", id: c.id, ok: false, user: game.user.id });
     this.close();
@@ -2202,7 +2257,7 @@ const Call = {
     const from = c.gm ? c.from : (game.user.character?.name ?? game.user.name);
     emit({ action: "call-line", id: c.id, from, text });
     c.lines.push({ from, text, me: true }); c.talk = Date.now();
-    act("msg", c.gm ? { to: c.to, from, text, call: true } : { to: "gm", from, text, call: true });
+    act("msg", c.gm ? { to: c.caller ?? c.to, from, text, call: true } : { to: "gm", from, text, call: true });
     this.render(true);
   },
   end(silent) {
@@ -2232,8 +2287,8 @@ const Call = {
     if (!this.tick) this.tick = setInterval(() => { const t = this.el?.querySelector(".cl-dur"); if (t) t.textContent = this.dur(); this.el?.classList.toggle("talk", Date.now() - (this.cur?.talk ?? 0) < 2600); }, 500);
     const name = (id) => { const u = game.users.get(id); return esc(u?.character?.name ?? u?.name ?? "?"); };
     const ST = { ring: T("вызов…"), ok: T("на связи"), no: T("сбросил"), left: T("отключился"), busy: T("занят") };
-    const status = c.phase === "ring" ? T("ВХОДЯЩИЙ ВЫЗОВ") : c.phase === "out" ? T("ВЫЗОВ…") : c.phase === "live" ? T("НА СВЯЗИ") : T("СВЯЗЬ ПРЕРВАНА");
-    const who = c.gm ? (c.to === "all" ? T("Все игроки") : name(c.to)) : c.from;
+    const status = c.phase === "ring" ? T("ВХОДЯЩИЙ ВЫЗОВ") : c.phase === "out" ? T("ВЫЗОВ…") : c.phase === "live" ? T("НА СВЯЗИ") : c.noAnswer ? T("АБОНЕНТ НЕ ОТВЕЧАЕТ") : c.busyEnd ? T("АБОНЕНТ ЗАНЯТ") : T("СВЯЗЬ ПРЕРВАНА");
+    const who = c.gm ? (c.incoming ? name(c.caller) : c.to === "all" ? T("Все игроки") : name(c.to)) : c.from;
     const lines = c.lines.slice(-4);
     this.el.className = `on ph-${c.phase}${c.gm ? " gm" : ""}`;
     this.el.innerHTML = `<div class="cl-frame">
@@ -2241,9 +2296,9 @@ const Call = {
       <div class="cl-main">
         <div class="cl-portrait">${c.img ? `<img src="${esc(c.img)}" alt="">` : `<i class="fas fa-user-secret"></i>`}<span class="cl-scan"></span><span class="cl-glitch"></span></div>
         <div class="cl-info">
-          <small>${c.gm ? T("ЗВОНИТ ОТ ИМЕНИ") : "NCNET · HOLO"}</small>
+          <small>${c.incoming ? `${esc(c.callerName)} ${T("ЗВОНИТ КОНТАКТУ")}` : c.gm ? T("ЗВОНИТ ОТ ИМЕНИ") : c.outgoing ? T("ВЫ ЗВОНИТЕ") : "NCNET · HOLO"}</small>
           <b>${esc(c.gm ? c.from : who)}</b>
-          ${c.gm ? `<small class="cl-to">→ ${who}</small>` : ""}
+          ${c.gm ? `<small class="cl-to">${c.incoming ? "←" : "→"} ${who}</small>` : ""}
           <div class="cl-eq">${"<i></i>".repeat(14)}</div>
         </div>
       </div>
@@ -2272,11 +2327,36 @@ const Call = {
     }
   }
 };
+/** Контакт в «Агенте»: кто это, портрет, кто из игроков его видит. */
+async function contactDialog(k = {}, actor) {
+  if (!isGM()) return;
+  const players = game.users.filter(u => !u.isGM);
+  const actors = game.actors.filter(a => a.type !== "container").slice(0, 300);
+  const all = !k.id || k.who === "all";
+  const fd = await formDialog(k.id ? T("Контакт") : T("Новый контакт"), `<form class="ncm-form">
+    <label>${T("Взять из актёра")}<select data-actor><option value="">—</option>${actors.map(a => `<option value="${a.id}"${actor?.id === a.id ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select></label>
+    <label>${T("Имя")}<input name="name" value="${esc(k.name ?? actor?.name ?? "")}" placeholder="${T("Роуг")}"></label>
+    <label>${T("Портрет")}<span class="ncm-fp"><input name="img" value="${esc(k.img ?? (actor?.img && !actor.img.includes("mystery-man") ? actor.img : ""))}" placeholder="${T("пусто — силуэт")}"><button type="button" data-fp="img" title="${T("Выбрать файл")}"><i class="fas fa-file-image"></i></button></span></label>
+    <label>${T("Подпись (видят игроки)")}<input name="note" value="${esc(k.note ?? "")}" placeholder="${T("Фиксер, Посмертие")}"></label>
+    <div class="ncm-who"><span>${T("Кому виден")}</span>
+      <label class="ncm-check"><input type="checkbox" name="all" ${all ? "checked" : ""}> ${T("Всем игрокам")}</label>
+      ${players.map(u => `<label class="ncm-check"><input type="checkbox" name="p_${u.id}" ${!all && (k.who ?? []).includes(u.id) ? "checked" : ""}> ${esc(u.character?.name ?? u.name)}</label>`).join("")}</div></form>`, T("Сохранить"));
+  if (!fd || !String(fd.name ?? "").trim()) return;
+  const who = fd.all ? "all" : players.filter(u => fd[`p_${u.id}`]).map(u => u.id);
+  const rec = { id: k.id ?? rid(), name: String(fd.name).trim(), img: fd.img ?? "", note: fd.note ?? "", who };
+  await save(s => { s.contacts ??= []; const i = s.contacts.findIndex(x => x.id === rec.id); if (i >= 0) s.contacts[i] = rec; else s.contacts.push(rec); });
+  ui.notifications.info(T("Контакт сохранён в «Агенте»."));
+}
+
 /* Голо-вызов от имени персонажа: пункт в меню актёров и кнопка в шапке листа (только мастеру). */
 const callFromActor = (a) => a && agentOn() && Call.dialog({ from: a.name, img: a.img && !a.img.includes("mystery-man") ? a.img : "" });
 Hooks.on("getActorDirectoryEntryContext", (html, opts) => {
   opts.push({ name: T("Голо-вызов от этого персонажа"), icon: '<i class="fas fa-phone-volume"></i>', condition: () => isGM() && agentOn(),
     callback: (li) => { const el = li?.[0] ?? li; callFromActor(game.actors.get(el?.dataset?.documentId ?? el?.dataset?.entryId)); } });
+});
+Hooks.on("getActorDirectoryEntryContext", (html, opts) => {
+  opts.push({ name: T("Добавить в контакты «Агента»"), icon: '<i class="fas fa-address-book"></i>', condition: () => isGM() && agentOn(),
+    callback: (li) => { const el = li?.[0] ?? li; const a = game.actors.get(el?.dataset?.documentId ?? el?.dataset?.entryId); if (a) contactDialog({}, a); } });
 });
 Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
   if (!isGM() || !agentOn()) return;

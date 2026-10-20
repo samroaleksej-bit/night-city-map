@@ -1,3 +1,17 @@
+## 0.17.0 — contacts
+
+- **Contacts** tab in the Agent. The GM adds fixers and NPCs (name, portrait, caption) and chooses which players see each one; there's also “Add to Agent contacts” in an actor's context menu.
+- Players call a contact from their phone: they hear the ringback, the GM gets the incoming call and answers as that NPC. No answer in 45 seconds — “No answer”.
+- From a contact you can also message (the GM writes as that NPC) and, for the GM, call players as them in one click.
+- Contacts are included in export/import.
+
+## 0.17.0 — контакты
+
+- Вкладка **«Контакты»** в «Агенте». Мастер добавляет фиксеров и NPC (имя, портрет, подпись) и выбирает, кто из игроков их видит. Есть и пункт «Добавить в контакты «Агента»» в меню актёра.
+- Игрок звонит контакту прямо с телефона: слышит гудки, у мастера всплывает входящий вызов, и он отвечает от имени NPC. Не ответили за 45 секунд — «Абонент не отвечает».
+- Из контакта можно и написать (мастер пишет от имени NPC), а мастер одной кнопкой звонит игрокам от его лица.
+- Контакты переносятся экспортом и импортом.
+
 ## 0.16.0 — holo-calls
 
 - **Holo-call**: the GM calls players as any character. Incoming call with portrait, ringtone, Accept / Decline; once connected everyone on the line types lines that appear as subtitles, with a call timer and a live status per player.

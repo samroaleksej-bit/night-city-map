@@ -409,7 +409,7 @@
 #ncm-agent .ag-clock small { color: var(--c); letter-spacing: .08em; }
 #ncm-agent .ag-loc { padding: 8px 10px; border-left: 3px solid var(--y); background: #11131b; }
 #ncm-agent .ag-loc span { display: block; font-size: 10px; letter-spacing: .25em; color: #7d93a6; } #ncm-agent .ag-loc b { font-size: 15px; }
-#ncm-agent .ag-nav { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid rgba(0,240,255,.2); background: #0b0b12; }
+#ncm-agent .ag-nav { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid rgba(0,240,255,.2); background: #0b0b12; }
 #ncm-agent .ag-nav button { all: unset; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 10px; font-size: 11px; color: #7d93a6; }
 #ncm-agent .ag-nav button i { font-size: 17px; }
 #ncm-agent .ag-nav button.on { color: var(--y); }
@@ -532,3 +532,19 @@
 @keyframes cl-eq { 0%,100% { height: 3px; } 50% { height: 20px; } }
 @keyframes cl-pulse { 50% { box-shadow: 0 0 18px var(--g); } }
 @media (prefers-reduced-motion: reduce) { #ncm-call *, #ncm-call { animation: none !important; transition: none !important; } }
+#ncm-agent .ag-contacts { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+#ncm-agent .ag-add { all: unset; cursor: pointer; text-align: center; padding: 7px; border: 1px dashed var(--y); color: var(--y); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+#ncm-agent .ag-k { display: flex; gap: 10px; align-items: center; padding: 8px; background: #0e0e18; border: 1px solid rgba(0,240,255,.18); }
+#ncm-agent .ag-k-pic { flex: 0 0 44px; height: 44px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--c); background: #050a12; color: var(--c); font-size: 22px; }
+#ncm-agent .ag-k-pic img { width: 100%; height: 100%; object-fit: cover; }
+#ncm-agent .ag-k-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+#ncm-agent .ag-k-info b { color: #fff; font-size: 14px; overflow-wrap: anywhere; }
+#ncm-agent .ag-k-info small { color: #7d93a6; font-size: 11px; }
+#ncm-agent .ag-k-info .ag-k-who { color: var(--y); opacity: .8; }
+#ncm-agent .ag-k-act { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; max-width: 72px; }
+#ncm-agent .ag-k-act button { all: unset; cursor: pointer; width: 30px; height: 26px; display: grid; place-items: center; border: 1px solid rgba(0,240,255,.35); color: var(--c); font-size: 12px; }
+#ncm-agent .ag-k-act button[data-ag="k-call"] { border-color: #3dff9a; color: #3dff9a; }
+#ncm-agent .ag-k-act button[data-ag="k-del"] { border-color: var(--m); color: var(--m); }
+#ncm-agent .ag-k-act button:hover { box-shadow: 0 0 8px currentColor; }
+.ncm-form .ncm-who { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; margin-top: 6px; }
+.ncm-form .ncm-who > span { flex-basis: 100%; font-weight: 700; }

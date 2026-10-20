@@ -51,7 +51,7 @@ A gig generator, a gig board, and “?” rumors on the map that players can tak
 ### The Agent
 An in-game phone for every player: chats with the GM and fixers, available gigs, your position and the crew's.
 
-**Holo-calls:** the GM calls players as any NPC — from the Agent, the actor's context menu, the **Call** button on an actor sheet, or a macro (`NightCityMap.call({ from, img, to, text })`). Players get an incoming call with a portrait and a ringtone, accept or decline, and talk in subtitles. Pick your own ringtone in the module settings.
+**Holo-calls:** the GM calls players as any NPC — from the Agent, the actor's context menu, the **Call** button on an actor sheet, or a macro (`NightCityMap.call({ from, img, to, text })`). Players get an incoming call with a portrait and a ringtone, accept or decline, and talk in subtitles. Pick your own ringtone in the module settings. **Contacts:** the GM adds NPCs to the Agent's contact list and picks who sees them; players can call those contacts, and the GM answers as the NPC.
 
 | Chats | Gigs | Position |
 |---|---|---|
@@ -116,7 +116,7 @@ Module code and texts: Verlierboy · [Circle of Masters](https://t.me/circleofdm
 - заказы фиксеров и слухи «?» на карте;
 - магазины и Ночные рынки с ценами по книге;
 - метки «Мы здесь» и «Я здесь»;
-- телефон «Агент» и голо-звонки от имени любого NPC (своя мелодия — в настройках);
+- телефон «Агент»: чаты, контакты и голо-звонки (мастер звонит от имени NPC, игроки звонят контактам; своя мелодия — в настройках);
 - часы и календарь, синхронизация с Simple Calendar;
 - свои места, правка и перенос встроенных, свои встречи, экспорт и импорт;
 - покупки в магазинах прямо с карты (эдди списываются с персонажа);
