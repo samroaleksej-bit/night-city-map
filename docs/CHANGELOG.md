@@ -1,3 +1,17 @@
+## 0.16.0 — holo-calls
+
+- **Holo-call**: the GM calls players as any character. Incoming call with portrait, ringtone, Accept / Decline; once connected everyone on the line types lines that appear as subtitles, with a call timer and a live status per player.
+- Call from the Agent (phone button next to “From”), from the actor's context menu in the Actors tab, from the **Call** button in an actor sheet header, or from a macro: `NightCityMap.call({ from: "Rogue", img: "path.webp", to: "all", text: "Got a job." })`.
+- Call lines are saved in the Agent chats, marked with a phone icon.
+- New setting **Call ringtone**: any audio file from your server. Empty — the module's built-in synth tone.
+
+## 0.16.0 — голо-звонки
+
+- **Голо-вызов**: мастер звонит игрокам от имени любого персонажа. Входящий вызов с портретом и мелодией, «Принять» / «Сбросить»; на связи все пишут реплики, они идут субтитрами, есть таймер и статус каждого игрока.
+- Позвонить можно из «Агента» (кнопка с трубкой рядом с «От:»), из меню актёра во вкладке «Актёры», кнопкой «Позвонить» в шапке листа или макросом: `NightCityMap.call({ from: "Роуг", img: "путь.webp", to: "all", text: "Есть работа." })`.
+- Реплики из звонка сохраняются в чатах «Агента» со значком трубки.
+- Настройка «Мелодия звонка»: любой аудиофайл с твоего сервера. Пусто — встроенный сигнал модуля.
+
 ## 0.15.1
 
 - Fixed: on hosts that serve module files from another domain (The Forge, S3, CDN) the street grid could not be read, so Shops, Night Markets and Gigs on map did nothing and the Roads overlay stayed empty. The grid now loads there; if it still can't, shops and gigs are placed by district and you get a warning instead of silence.

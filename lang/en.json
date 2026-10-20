@@ -25,6 +25,8 @@
    "BuyGm": "GM approves each purchase",
    "BuyAuto": "Instantly, no GM",
    "BuyOff": "Off",
+   "CallName": "Call ringtone",
+   "CallHint": "Sound of an incoming holo-call for players (mp3, ogg, wav). Empty — the module's built-in tone. Volume follows Foundry's interface volume.",
    "RoadsName": "Road grid image",
    "RoadsHint": "Grid the routes follow: white streets, gray land, black water, same proportions as the map. Empty — the module's Night City 2045 grid. Small fixes can be painted on the map with the Roads button."
   },

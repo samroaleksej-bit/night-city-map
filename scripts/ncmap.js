@@ -80,6 +80,9 @@ Hooks.once("init", () => {
   game.settings.register(MID, "roadsImage", {
     name: "NCM.Settings.RoadsName", hint: "NCM.Settings.RoadsHint", scope: "world", config: true, type: String, filePicker: "image", default: "", requiresReload: true
   });
+  game.settings.register(MID, "callSound", {
+    name: "NCM.Settings.CallName", hint: "NCM.Settings.CallHint", scope: "world", config: true, type: String, filePicker: "audio", default: ""
+  });
   game.settings.register(MID, "autoPlaced", { scope: "world", config: false, type: Boolean, default: false });
   game.settings.register(MID, "scAsked", { scope: "world", config: false, type: Boolean, default: false });
   game.settings.register(MID, "notify", { name: "NCM.Settings.NotifyName", scope: "world", config: true, type: Boolean, default: true });
@@ -231,7 +234,7 @@ async function applyOp(op, d, user) {
     }
     case "take": return save(s => { const q = s.quests.find(x => x.id === d.id); if (q && q.status === "offer") { q.status = "active"; q.takenBy = name; } })
       .then(() => ChatMessage.create({ speaker: { alias: T("Агент") }, content: `<div class="ncm-chat"><div class="ncm-chat-k">${T("ЗАКАЗ ПРИНЯТ")}</div><b>${esc(name)}</b> ${T("берёт заказ «")}${esc(state().quests.find(x => x.id === d.id)?.title ?? "")}${T("»")}</div>` }));
-    case "msg": return save(s => { s.messages.push({ id: rid(), to: d.to ?? "gm", from: d.from ?? name, fromUser: user?.id, text: String(d.text ?? "").slice(0, 2000), t: nowMin(s), ts: Date.now() }); if (s.messages.length > 300) s.messages = s.messages.slice(-300); });
+    case "msg": return save(s => { s.messages.push({ id: rid(), to: d.to ?? "gm", from: d.from ?? name, fromUser: user?.id, text: String(d.text ?? "").slice(0, 2000), t: nowMin(s), ts: Date.now(), ...(d.call ? { call: true } : {}) }); if (s.messages.length > 300) s.messages = s.messages.slice(-300); });
   }
 }
 function chatTravel(d, name) {
@@ -1754,12 +1757,12 @@ function pinDialog(title, p = {}, { base = false } = {}) {
     <label class="ncm-check"><input type="checkbox" name="locked" ${p.locked ? "checked" : ""}> ${T("Защитить от удаления")}</label></form>`);
 }
 
-function formDialog(title, content) {
+function formDialog(title, content, okLabel = T("Сохранить")) {
   return new Promise(resolve => {
     new Dialog({
       title, content,
       buttons: {
-        ok: { icon: '<i class="fas fa-check"></i>', label: T("Сохранить"), callback: (html) => {
+        ok: { icon: '<i class="fas fa-check"></i>', label: okLabel, callback: (html) => {
           const form = (html[0] ?? html).querySelector("form");
           const fd = new FormDataExtended(form).object;
           for (const cb of form.querySelectorAll("input[type=checkbox]")) fd[cb.name] = cb.checked;
@@ -1775,6 +1778,11 @@ function formDialog(title, content) {
           const FP = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker;
           if (FP) new FP({ type: "image", current: inp.value, callback: (path) => { inp.value = path; } }).render(true);
         }));
+        root?.querySelector?.("[data-actor]")?.addEventListener("change", (ev) => {
+          const a = game.actors.get(ev.target.value); if (!a) return;
+          root.querySelector('[name="from"]').value = a.name;
+          root.querySelector('[name="img"]').value = a.img && !a.img.includes("mystery-man") ? a.img : "";
+        });
       }
     }, { classes: ["ncm-dialog"], width: 480 }).render(true);
   });
@@ -1831,12 +1839,13 @@ Hooks.once("ready", () => {
     if (!d) return;
     if (d.action === "op") { if (game.user === game.users.activeGM) applyOp(d.op, d.data, game.users.get(d.user)); return; }
     if (d.action === "party") { if (game.user === game.users.activeGM) save(s => { s.party = { x: d.x, y: d.y }; }); return; }
+    if (String(d.action).startsWith("call")) return Call.onSocket(d);
     if (isGM()) return;
     if (d.action === "open") { UI.open().then(() => setTimeout(() => { UI.focus(d.x, d.y, d.s); if (d.sel) UI.select(d.sel); }, 120)); }
     if (d.action === "dossier") return openDossier(d.id, { remote: true });
     if (d.action === "quest") { const q = state().quests.find(x => x.id === d.id); if (q) questToast(q); }
   });
-  game.modules.get(MID).api = { open: () => UI.open(), close: () => UI.close(), ui: UI, agent: () => agentOn() && Agent.toggle() };
+  game.modules.get(MID).api = { open: () => UI.open(), close: () => UI.close(), ui: UI, agent: () => agentOn() && Agent.toggle(), call: (o) => Call.start(o ?? {}) };
   Agent.seen = new Set(state().messages.map(m => m.id));
   if (agentOn() && game.settings.get(MID, "agentAuto")) setTimeout(() => Agent.open(), 1200);
   // Первый запуск у мастера: город сразу с магазинами и Ночными рынками
@@ -1981,7 +1990,8 @@ const Agent = {
     const fresh = this.msgs().filter(m => !this.seen.has(m.id) && m.fromUser !== game.user.id);
     if (fresh.length) {
       for (const m of fresh) this.seen.add(m.id);
-      if (!this.el || this.tab !== "msg") { this.unread += fresh.length; this.badge(); this.ping(fresh.at(-1)); }
+      const loud = fresh.filter(m => !m.call);
+      if (loud.length && (!this.el || this.tab !== "msg")) { this.unread += loud.length; this.badge(); this.ping(loud.at(-1)); }
     }
     if (this.el) this.render();
   },
@@ -2019,11 +2029,11 @@ const Agent = {
     let list = all;
     if (isGM() && this.chatWith) list = all.filter(m => m.to === "all" || m.to === this.chatWith || m.fromUser === this.chatWith);
     return `${isGM() ? `<div class="ag-to">${T("Кому:")} <select data-ag-to><option value="all">${T("Всем")}</option>${players.map(u => `<option value="${u.id}"${this.chatWith === u.id ? " selected" : ""}>${esc(u.character?.name ?? u.name)}</option>`).join("")}</select>
-        ${T("От:")} <input data-ag-from value="${esc(this.from ?? T("Фиксер"))}"></div>` : ""}
+        ${T("От:")} <input data-ag-from value="${esc(this.from ?? T("Фиксер"))}"><button class="ag-call" data-ag="call" title="${T("Голо-вызов")}"><i class="fas fa-phone"></i></button></div>` : ""}
       ${isGM() && list.length ? `<div class="ag-tools"><button data-ag="del-all" title="${T("Удалить все сообщения в этом списке")}"><i class="fas fa-trash"></i> ${this.chatWith ? T("Очистить переписку") : T("Очистить все чаты")}</button></div>` : ""}
       <div class="ag-msgs">${list.length ? list.map(m => `<div class="ag-msg ${m.fromUser === game.user.id ? "out" : "in"}${m.to === "all" ? " all" : ""}">
           ${isGM() || m.fromUser === game.user.id ? `<button class="ag-del" data-ag="del" data-id="${m.id}" title="${T("Удалить сообщение")}">✕</button>` : ""}
-          <div class="ag-m-h"><b>${esc(fromName(m))}</b>${isGM() && m.to !== "all" && m.to !== "gm" ? ` → ${esc(game.users.get(m.to)?.name ?? "")}` : ""}${m.to === "all" ? T(" · всем") : ""}<span>${t(m)}</span></div>
+          <div class="ag-m-h">${m.call ? `<i class="fas fa-phone-volume" title="${T("Из звонка")}"></i> ` : ""}<b>${esc(fromName(m))}</b>${isGM() && m.to !== "all" && m.to !== "gm" ? ` → ${esc(game.users.get(m.to)?.name ?? "")}` : ""}${m.to === "all" ? T(" · всем") : ""}<span>${t(m)}</span></div>
           <div class="ag-m-t">${esc(m.text).replace(/\n/g, "<br>")}</div></div>`).join("") : `<p class="ag-empty">${T("Нет сообщений. Сеть молчит.")}</p>`}</div>
       <div class="ag-compose"><textarea data-ag-text rows="2" placeholder="${isGM() ? T("Сообщение от фиксера…") : T("Ответить мастеру…")}"></textarea><button data-ag="send"><i class="fas fa-paper-plane"></i></button></div>`;
   },
@@ -2063,6 +2073,7 @@ const Agent = {
       case "mini": return this.mini();
       case "tab": this.tab = b.dataset.t; if (this.tab === "msg") this.markSeen(); return this.render();
       case "send": return this.send();
+      case "call": this.from = this.el.querySelector("[data-ag-from]")?.value || this.from; return Call.dialog({ from: this.from });
       case "del": return act("msg-del", { ids: [b.dataset.id] });
       case "del-all": {
         const w = this.chatWith, ids = this.msgs().filter(m => !w || m.to === "all" || m.to === w || m.fromUser === w).map(m => m.id);
@@ -2080,6 +2091,197 @@ const Agent = {
     }
   }
 };
+/* ================================================================ звонки (голо-вызов) */
+
+/** Мелодия вызова: свой файл из настроек или встроенный синтезированный сигнал. */
+const Ring = {
+  audio: null, ctx: null, timer: null,
+  vol() { try { return Number(game.settings.get("core", "globalInterfaceVolume") ?? 0.5); } catch (e) { return 0.5; } },
+  synth() {
+    const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
+    this.ctx ??= new C(); this.ctx.resume?.(); return this.ctx;
+  },
+  tone(t, f1, f2, d, type = "square", gain = 0.07) {
+    const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + d);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain * this.vol()), t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + d + 0.03);
+  },
+  start() {
+    this.stop();
+    const src = game.settings.get(MID, "callSound");
+    if (src) { const a = new Audio(src); a.loop = true; a.volume = Math.min(1, this.vol()); a.play().catch(() => {}); this.audio = a; return; }
+    try {
+      if (!this.synth()) return;
+      const ring = () => { const t = this.ctx.currentTime + 0.02;
+        [0, 0.14, 0.28].forEach((o, i) => this.tone(t + o, 660 + i * 220, 990 + i * 260, 0.11));
+        [0.62, 0.76].forEach(o => this.tone(t + o, 1480, 880, 0.13, "sawtooth", 0.05)); };
+      ring(); this.timer = setInterval(ring, 2100);
+    } catch (e) { /* без звука */ }
+  },
+  stop() { if (this.audio) { this.audio.pause(); this.audio = null; } clearInterval(this.timer); this.timer = null; },
+  /** Короткий сигнал: соединение (up) или сброс (down). */
+  blip(up) { try { if (!this.synth()) return; const t = this.ctx.currentTime + 0.02; up ? (this.tone(t, 880, 1320, 0.09, "sine", 0.09), this.tone(t + 0.1, 1320, 1760, 0.09, "sine", 0.09)) : this.tone(t, 900, 300, 0.25, "sawtooth", 0.06); } catch (e) { /* */ } }
+};
+
+const Call = {
+  cur: null, el: null, tick: null,
+  /** Мастер звонит: окно выбора, кто звонит и кому. */
+  async dialog(opts = {}) {
+    if (!isGM()) return;
+    const players = game.users.filter(u => !u.isGM);
+    const actors = game.actors.filter(a => a.type !== "container").slice(0, 300);
+    const fd = await formDialog(T("Голо-вызов"), `<form class="ncm-form">
+      <label>${T("Взять из актёра")}<select data-actor><option value="">—</option>${actors.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select></label>
+      <label>${T("Кто звонит")}<input name="from" value="${esc(opts.from ?? Agent.from ?? T("Фиксер"))}"></label>
+      <label>${T("Портрет")}<span class="ncm-fp"><input name="img" value="${esc(opts.img ?? "")}" placeholder="${T("пусто — силуэт")}"><button type="button" data-fp="img" title="${T("Выбрать файл")}"><i class="fas fa-file-image"></i></button></span></label>
+      <label>${T("Кому")}<select name="to"><option value="all">${T("Всем игрокам")}</option>${players.map(u => `<option value="${u.id}"${opts.to === u.id || Agent.chatWith === u.id ? " selected" : ""}>${esc(u.character?.name ?? u.name)}${u.active ? "" : T(" (не в игре)")}</option>`).join("")}</select></label>
+      <label>${T("Первая реплика (необязательно)")}<textarea name="text" rows="2" placeholder="${T("Есть работа. Срочно.")}"></textarea></label></form>`, T("Позвонить"));
+    if (fd) this.start(fd);
+  },
+  /** Начать вызов (мастер). Можно из макроса: NightCityMap.call({from, img, to, text}). */
+  start({ from, img = "", to = "all", text = "" } = {}) {
+    if (!isGM()) return ui.notifications.warn(T("Звонить может только мастер."));
+    if (!from) return this.dialog({ img, to });
+    if (this.cur) this.end(true);
+    const targets = to === "all" ? game.users.filter(u => !u.isGM && u.active).map(u => u.id) : [to];
+    if (!targets.length) return ui.notifications.warn(T("Некому звонить: игроков нет в игре."));
+    const c = { id: rid(), from, img, to, first: String(text ?? "").trim() };
+    this.cur = { ...c, gm: true, phase: "out", lines: [], ans: Object.fromEntries(targets.map(id => [id, "ring"])), t0: Date.now() };
+    emit({ action: "call", c });
+    this.render();
+  },
+  onSocket(d) {
+    const c = this.cur;
+    switch (d.action) {
+      case "call": {
+        if (isGM() || (d.c.to !== "all" && d.c.to !== game.user.id)) return;
+        if (c && c.phase === "live") return emit({ action: "call-ans", id: d.c.id, ok: false, busy: true, user: game.user.id });
+        this.cur = { ...d.c, gm: false, phase: "ring", lines: [], t0: Date.now() };
+        Ring.start(); return this.render();
+      }
+      case "call-ans": {
+        if (!isGM() || !c || c.id !== d.id) return;
+        c.ans[d.user] = d.ok ? "ok" : d.busy ? "busy" : c.ans[d.user] === "ok" ? "left" : "no";
+        if (d.ok) {
+          if (c.phase !== "live") { c.phase = "live"; c.t1 = Date.now(); Ring.blip(true); }
+          if (c.lines.length) emit({ action: "call-sync", id: c.id, user: d.user, lines: c.lines.map(l => ({ from: l.from, text: l.text })) });
+          if (c.first && !c.firstSaid) { c.firstSaid = true; this.say(c.first); }
+        }
+        if (!Object.values(c.ans).some(v => v === "ring" || v === "ok")) { c.phase = "over"; Ring.blip(false); setTimeout(() => this.cur?.id === d.id && this.close(), 3500); }
+        return this.render();
+      }
+      case "call-sync": if (c && c.id === d.id && d.user === game.user.id) { c.lines = d.lines; this.render(); } return;
+      case "call-line": {
+        if (!c || c.id !== d.id || (!c.gm && c.phase !== "live")) return;
+        c.lines.push({ from: d.from, text: d.text, me: false }); c.talk = Date.now(); return this.render(true);
+      }
+      case "call-end": {
+        if (!c || c.id !== d.id) return;
+        Ring.stop(); if (c.phase === "live") Ring.blip(false);
+        c.phase = "over"; this.render(); setTimeout(() => this.cur?.id === d.id && this.close(), 2500); return;
+      }
+    }
+  },
+  accept() {
+    const c = this.cur; if (!c) return;
+    Ring.stop(); Ring.blip(true);
+    c.phase = "live"; c.t1 = Date.now();
+    emit({ action: "call-ans", id: c.id, ok: true, user: game.user.id });
+    this.render();
+  },
+  decline() {
+    const c = this.cur; if (!c) return;
+    Ring.stop(); if (c.phase === "live") Ring.blip(false);
+    emit({ action: "call-ans", id: c.id, ok: false, user: game.user.id });
+    this.close();
+  },
+  /** Реплика в разговоре: видят все на линии, сохраняется в чатах Агента. */
+  say(text) {
+    const c = this.cur; text = String(text ?? "").trim(); if (!c || !text) return;
+    const from = c.gm ? c.from : (game.user.character?.name ?? game.user.name);
+    emit({ action: "call-line", id: c.id, from, text });
+    c.lines.push({ from, text, me: true }); c.talk = Date.now();
+    act("msg", c.gm ? { to: c.to, from, text, call: true } : { to: "gm", from, text, call: true });
+    this.render(true);
+  },
+  end(silent) {
+    const c = this.cur; if (!c) return;
+    if (c.gm) emit({ action: "call-end", id: c.id }); else emit({ action: "call-ans", id: c.id, ok: false, user: game.user.id });
+    Ring.stop(); if (!silent && c.phase === "live") Ring.blip(false);
+    this.close();
+  },
+  close() {
+    clearInterval(this.tick); this.tick = null; Ring.stop(); this.cur = null;
+    const el = this.el; this.el = null; if (!el) return;
+    el.classList.remove("on"); setTimeout(() => el.remove(), 300);
+  },
+  dur() { const c = this.cur; if (!c?.t1) return "00:00"; const s = Math.floor((Date.now() - c.t1) / 1000); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; },
+  render(typed) {
+    const c = this.cur; if (!c) return;
+    if (!this.el) {
+      const el = document.createElement("div"); el.id = "ncm-call"; document.body.appendChild(el); this.el = el;
+      el.addEventListener("click", (ev) => this.onClick(ev));
+      el.addEventListener("keydown", (ev) => { ev.stopPropagation(); if (ev.key === "Enter" && !ev.shiftKey && ev.target.matches("textarea")) { ev.preventDefault(); this.send(); } });
+      let dr = null;
+      el.addEventListener("pointerdown", (ev) => { if (!ev.target.closest(".cl-head") || ev.target.closest("button")) return; const r = el.getBoundingClientRect(); dr = { x: ev.clientX - r.left, y: ev.clientY - r.top }; el.setPointerCapture(ev.pointerId); });
+      el.addEventListener("pointermove", (ev) => { if (!dr) return; el.style.left = `${ev.clientX - dr.x}px`; el.style.top = `${ev.clientY - dr.y}px`; });
+      el.addEventListener("pointerup", () => { dr = null; });
+      requestAnimationFrame(() => el.classList.add("on"));
+    }
+    if (!this.tick) this.tick = setInterval(() => { const t = this.el?.querySelector(".cl-dur"); if (t) t.textContent = this.dur(); this.el?.classList.toggle("talk", Date.now() - (this.cur?.talk ?? 0) < 2600); }, 500);
+    const name = (id) => { const u = game.users.get(id); return esc(u?.character?.name ?? u?.name ?? "?"); };
+    const ST = { ring: T("вызов…"), ok: T("на связи"), no: T("сбросил"), left: T("отключился"), busy: T("занят") };
+    const status = c.phase === "ring" ? T("ВХОДЯЩИЙ ВЫЗОВ") : c.phase === "out" ? T("ВЫЗОВ…") : c.phase === "live" ? T("НА СВЯЗИ") : T("СВЯЗЬ ПРЕРВАНА");
+    const who = c.gm ? (c.to === "all" ? T("Все игроки") : name(c.to)) : c.from;
+    const lines = c.lines.slice(-4);
+    this.el.className = `on ph-${c.phase}${c.gm ? " gm" : ""}`;
+    this.el.innerHTML = `<div class="cl-frame">
+      <div class="cl-head"><span class="cl-k"><i class="fas fa-phone-volume"></i> ${status}</span>${c.phase === "live" ? `<span class="cl-dur">${this.dur()}</span>` : ""}</div>
+      <div class="cl-main">
+        <div class="cl-portrait">${c.img ? `<img src="${esc(c.img)}" alt="">` : `<i class="fas fa-user-secret"></i>`}<span class="cl-scan"></span><span class="cl-glitch"></span></div>
+        <div class="cl-info">
+          <small>${c.gm ? T("ЗВОНИТ ОТ ИМЕНИ") : "NCNET · HOLO"}</small>
+          <b>${esc(c.gm ? c.from : who)}</b>
+          ${c.gm ? `<small class="cl-to">→ ${who}</small>` : ""}
+          <div class="cl-eq">${"<i></i>".repeat(14)}</div>
+        </div>
+      </div>
+      ${c.gm ? `<div class="cl-ans">${Object.entries(c.ans).map(([id, v]) => `<span class="a-${v}">${name(id)} · ${ST[v]}</span>`).join("")}</div>` : ""}
+      ${lines.length ? `<div class="cl-lines">${lines.map((l, i) => `<p class="${l.me ? "me" : ""}"><b>${esc(l.from)}:</b> <span${typed && i === lines.length - 1 && !l.me ? " data-type" : ""}>${esc(l.text)}</span></p>`).join("")}</div>` : ""}
+      ${c.phase === "live" || (c.gm && c.phase === "out") ? `<div class="cl-say"><textarea data-cl-text rows="1" placeholder="${c.gm ? T("Реплика от ") + esc(c.from) + "…" : T("Ответить…")}"></textarea><button data-cl="send" title="${T("Сказать")}"><i class="fas fa-paper-plane"></i></button></div>` : ""}
+      <div class="cl-btns">
+        ${c.phase === "ring" ? `<button class="ok" data-cl="accept"><i class="fas fa-phone"></i> ${T("Принять")}</button><button class="no" data-cl="decline"><i class="fas fa-phone-slash"></i> ${T("Сбросить")}</button>` : ""}
+        ${c.phase === "live" || c.phase === "out" ? `<button class="no" data-cl="end"><i class="fas fa-phone-slash"></i> ${c.gm ? T("Завершить вызов") : T("Положить трубку")}</button>` : ""}
+        ${c.phase === "over" ? `<button data-cl="close">${T("Закрыть")}</button>` : ""}
+      </div></div>`;
+    const tw = this.el.querySelector("[data-type]");
+    if (tw) { const full = tw.textContent; tw.textContent = ""; let i = 0; const step = () => { if (!tw.isConnected) return; tw.textContent = full.slice(0, ++i); if (i < full.length) setTimeout(step, 22); }; step(); }
+    const box = this.el.querySelector(".cl-lines"); if (box) box.scrollTop = box.scrollHeight;
+    if (c.phase === "live") this.el.querySelector("[data-cl-text]")?.focus({ preventScroll: true });
+  },
+  send() { const ta = this.el?.querySelector("[data-cl-text]"); if (!ta?.value.trim()) return; const v = ta.value; ta.value = ""; this.say(v); },
+  onClick(ev) {
+    const b = ev.target.closest("[data-cl]"); if (!b) return;
+    switch (b.dataset.cl) {
+      case "accept": return this.accept();
+      case "decline": return this.decline();
+      case "end": return this.end();
+      case "close": return this.close();
+      case "send": return this.send();
+    }
+  }
+};
+/* Голо-вызов от имени персонажа: пункт в меню актёров и кнопка в шапке листа (только мастеру). */
+const callFromActor = (a) => a && agentOn() && Call.dialog({ from: a.name, img: a.img && !a.img.includes("mystery-man") ? a.img : "" });
+Hooks.on("getActorDirectoryEntryContext", (html, opts) => {
+  opts.push({ name: T("Голо-вызов от этого персонажа"), icon: '<i class="fas fa-phone-volume"></i>', condition: () => isGM() && agentOn(),
+    callback: (li) => { const el = li?.[0] ?? li; callFromActor(game.actors.get(el?.dataset?.documentId ?? el?.dataset?.entryId)); } });
+});
+Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
+  if (!isGM() || !agentOn()) return;
+  buttons.unshift({ label: T("Позвонить"), class: "ncm-call-btn", icon: "fas fa-phone-volume", onclick: () => callFromActor(sheet.actor ?? sheet.object) });
+});
 document.addEventListener("change", (ev) => { if (ev.target.matches?.("#ncm-agent [data-ag-to]")) { Agent.chatWith = ev.target.value === "all" ? null : ev.target.value; Agent.render(); } });
 
 Hooks.on("collapseSidebar", () => setTimeout(() => { if (UI.el) { UI.layout(); UI.fit(); } }, 350));
