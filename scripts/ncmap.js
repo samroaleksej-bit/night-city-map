@@ -2306,7 +2306,7 @@ const Call = {
       ${lines.length ? `<div class="cl-lines">${lines.map((l, i) => `<p class="${l.me ? "me" : ""}"><b>${esc(l.from)}:</b> <span${typed && i === lines.length - 1 && !l.me ? " data-type" : ""}>${esc(l.text)}</span></p>`).join("")}</div>` : ""}
       ${c.phase === "live" || (c.gm && c.phase === "out") ? `<div class="cl-say"><textarea data-cl-text rows="1" placeholder="${c.gm ? T("Реплика от ") + esc(c.from) + "…" : T("Ответить…")}"></textarea><button data-cl="send" title="${T("Сказать")}"><i class="fas fa-paper-plane"></i></button></div>` : ""}
       <div class="cl-btns">
-        ${c.phase === "ring" ? `<button class="ok" data-cl="accept"><i class="fas fa-phone"></i> ${T("Принять")}</button><button class="no" data-cl="decline"><i class="fas fa-phone-slash"></i> ${T("Сбросить")}</button>` : ""}
+        ${c.phase === "ring" ? `<button class="ok" data-cl="accept"><i class="fas fa-phone"></i> ${T("Принять")}</button><button class="no" data-cl="decline"><i class="fas fa-phone-slash"></i> ${T("Сбросить вызов")}</button>` : ""}
         ${c.phase === "live" || c.phase === "out" ? `<button class="no" data-cl="end"><i class="fas fa-phone-slash"></i> ${c.gm ? T("Завершить вызов") : T("Положить трубку")}</button>` : ""}
         ${c.phase === "over" ? `<button data-cl="close">${T("Закрыть")}</button>` : ""}
       </div></div>`;

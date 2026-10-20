@@ -1214,5 +1214,6 @@ export default {
  "Фиксер, Посмертие": "Fixer, Afterlife",
  "Кому виден": "Visible to",
  "Контакт сохранён в «Агенте».": "Contact saved in the Agent.",
- "Добавить в контакты «Агента»": "Add to Agent contacts"
+ "Добавить в контакты «Агента»": "Add to Agent contacts",
+ "Сбросить вызов": "Decline"
 };

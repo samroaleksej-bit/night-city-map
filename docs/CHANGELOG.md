@@ -1,3 +1,11 @@
+## 0.17.1
+
+- English: the Decline button on an incoming call no longer says “Reset”.
+
+## 0.17.1
+
+- Кнопка отказа от входящего вызова теперь «Сбросить вызов» (в английской версии была «Reset»).
+
 ## 0.17.0 — contacts
 
 - **Contacts** tab in the Agent. The GM adds fixers and NPCs (name, portrait, caption) and chooses which players see each one; there's also “Add to Agent contacts” in an actor's context menu.
