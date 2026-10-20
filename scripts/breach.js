@@ -226,7 +226,7 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", () => {
   game.socket.on(SOCKET, (d) => { if (d?.action === "breach" && d.user === game.user.id) Game.open(d.job); });
-  const api = { start, dialog, generate };
+  const api = { start, dialog, generate, open: (job) => Game.open(job) };
   game.modules.get(MID).api = api; globalThis.NetBreach = api;
 });
 

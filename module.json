@@ -2,7 +2,7 @@
   "id": "netrun-breach",
   "title": "Netrun Breach · Code-Matrix Hacking (EN/RU)",
   "description": "<p>A code-matrix hacking minigame for <b>Cyberpunk RED</b>. The GM launches a breach for a player; the netrunner's Interface rank sets buffer size and time, the floor's DV sets the grid and the daemons. Results go to chat.</p><p>Мини-игра на взлом для Cyberpunk RED: код-матрица, буфер, демоны. Ранг Interface даёт буфер и время, DV этажа задаёт сложность. Итог — в чат.</p>",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "authors": [{ "name": "Verlierboy", "url": "https://t.me/circleofdms" }],
   "compatibility": { "minimum": "12", "verified": "12" },
   "esmodules": ["scripts/breach.js"],
