@@ -1,0 +1,10 @@
+{
+ "NB": {
+  "ChatName": "Breach result in chat",
+  "ChatHint": "Whisper — only the GM and the netrunner see it. Public — everyone sees the card.",
+  "ChatWhisper": "Whisper to GM and netrunner",
+  "ChatPublic": "Public",
+  "LangName": "Minigame language",
+  "LangAuto": "Same as Foundry"
+ }
+}
