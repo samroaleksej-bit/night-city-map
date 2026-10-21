@@ -1,0 +1,13 @@
+{
+  "id": "nc-dossiers",
+  "title": "Досье Danger Gal (личное)",
+  "description": "<p>Личный модуль кампании: досье на наёмников открываются как папки на терминале Найт-Сити. Мастер открывает и показывает их игрокам.</p>",
+  "version": "0.1.0",
+  "authors": [{ "name": "Verlierboy", "url": "https://t.me/circleofdms" }],
+  "compatibility": { "minimum": "12", "verified": "12" },
+  "esmodules": ["scripts/dossiers.js"],
+  "styles": ["styles/dossiers.css"],
+  "socket": true,
+  "manifest": "https://raw.githubusercontent.com/samroaleksej-bit/night-city-map/nc-dossiers/module.json",
+  "download": "https://github.com/samroaleksej-bit/night-city-map/archive/refs/heads/nc-dossiers.zip"
+}

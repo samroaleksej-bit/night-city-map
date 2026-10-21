@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Досье · Сноу</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;600&family=Caveat:wght@600&display=swap">
+<style>
+/* Layout: a Night City terminal file browser — path bar, folder tree on the left, the open folder on the right; folders open with a glitch */
+:root{
+  --bg:#07080b; --win:#0f1117; --panel:#151821; --line:#2a2f3b; --fg:#e8eef2; --muted:#8c96a3;
+  --red:#ff2f4b; --cyan:#3ee6ff; --yel:#f5d90a; --ok:#7fe08a;
+  --head:"Oswald","Arial Narrow",sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace; --hand:"Caveat",cursive;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg);margin:0}
+body{font:15px/1.55 var(--body);background:radial-gradient(ellipse at 30% 0%,#122030 0%,var(--bg) 60%) fixed var(--bg)}
+.wrap{max-width:1180px;margin:0 auto;padding-block:16px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.term{border:1px solid var(--line);background:var(--win);box-shadow:0 0 0 1px #000,0 20px 60px rgba(0,0,0,.6),0 0 40px rgba(62,230,255,.06)}
+.tbar{display:flex;align-items:center;gap:12px;padding:8px 12px;background:#0a0c11;border-bottom:1px solid var(--line);font:600 12px var(--mono);letter-spacing:.08em;color:var(--muted)}
+.tbar .dots{display:flex;gap:6px}.tbar .dots i{width:10px;height:10px;display:block;border:1px solid var(--line)}
+.tbar .dots i:first-child{background:var(--red);border-color:var(--red)}
+.tbar b{color:var(--cyan);font-weight:600}
+.tbar .rt{margin-left:auto;color:var(--red)}
+.path{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:8px 12px;border-bottom:1px solid var(--line);font:500 13px var(--mono);color:var(--muted);background:#0c0e14}
+.path button{all:unset;cursor:pointer;color:var(--cyan);padding:1px 4px}
+.path button:hover,.path button:focus-visible{background:rgba(62,230,255,.12);outline:none}
+.path .cur{color:var(--fg);padding:1px 4px}
+.path .back{margin-right:8px;border:1px solid var(--line);padding:2px 10px;color:var(--fg)}
+.body{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:640px}
+@media (max-width:820px){.body{grid-template-columns:minmax(0,1fr)}.tree{display:none}}
+.tree{border-right:1px solid var(--line);padding:12px 0;font:500 13px var(--mono);background:#0b0d12}
+.tree button{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;padding:5px 14px;cursor:pointer;color:var(--muted)}
+.tree button:hover,.tree button:focus-visible{color:var(--fg);background:rgba(255,255,255,.04)}
+.tree button.on{color:var(--yel);background:rgba(245,217,10,.07);border-left:2px solid var(--yel)}
+.tree .ico{width:16px;height:12px;flex:none;position:relative;background:currentColor;opacity:.85}
+.tree .ico::before{content:"";position:absolute;left:0;top:-3px;width:7px;height:3px;background:currentColor}
+.tree .ico.f{width:12px;height:14px;opacity:.7}.tree .ico.f::before{display:none}
+.tree .root{color:var(--fg);font-weight:600;margin-bottom:4px}
+.pane{padding:20px;min-width:0;position:relative}
+.pane.opening{animation:open .42s steps(5) both}
+@keyframes open{0%{clip-path:inset(0 0 100% 0);filter:brightness(2.4) hue-rotate(70deg);transform:translateX(-6px)}40%{clip-path:inset(0 0 45% 0);transform:translateX(4px)}70%{clip-path:inset(0 0 10% 0);filter:brightness(1.4)}100%{clip-path:inset(0);filter:none;transform:none}}
+/* рабочий стол: папки */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:22px 14px}
+.fold{all:unset;box-sizing:border-box;cursor:pointer;display:grid;justify-items:center;gap:8px;padding:12px 6px;text-align:center;border:1px solid transparent}
+.fold:hover,.fold:focus-visible{border-color:rgba(62,230,255,.35);background:rgba(62,230,255,.05);outline:none}
+.fico{position:relative;width:96px;height:70px;--c:var(--yel)}
+.fico::before{content:"";position:absolute;left:0;top:0;width:40px;height:12px;background:color-mix(in srgb,var(--c) 70%,#000);clip-path:polygon(0 0,80% 0,100% 100%,0 100%)}
+.fico .back{position:absolute;left:0;right:0;top:8px;bottom:0;background:color-mix(in srgb,var(--c) 70%,#000)}
+.fico .paper{position:absolute;left:10px;right:10px;top:12px;height:40px;background:#e9e4d8;transition:transform .2s}
+.fico .front{position:absolute;left:0;right:0;top:20px;bottom:0;background:var(--c);transform-origin:bottom;transition:transform .25s;box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}
+.fico .front::after{content:attr(data-n);position:absolute;right:8px;bottom:6px;font:700 13px var(--mono);color:rgba(0,0,0,.55)}
+.fold:hover .front,.fold:focus-visible .front{transform:perspective(200px) rotateX(-28deg)}
+.fold:hover .paper,.fold:focus-visible .paper{transform:translateY(-8px)}
+.fold.red .fico{--c:var(--red)}.fold.cy .fico{--c:var(--cyan)}
+.fold b{font:600 13px var(--mono);letter-spacing:.04em;color:var(--fg);word-break:break-word}
+.fold small{font:400 12px var(--mono);color:var(--muted)}
+.fold.locked b::after{content:" 🔒";}
+/* файлы */
+.files{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+figure{margin:0;min-width:0}
+.file{background:var(--panel);border:1px solid var(--line)}
+.file img{display:block;width:100%;height:auto;cursor:zoom-in;background:#000}
+.file figcaption{padding:10px 12px;font:400 13px/1.45 var(--mono);color:var(--muted)}
+.file figcaption b{display:block;color:var(--fg);font:600 13px var(--mono);margin-bottom:3px}
+h2{font:700 26px var(--head);text-transform:uppercase;letter-spacing:.05em;margin:0 0 4px}
+.sub{font:500 12px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 16px}
+.profile{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:700px){.profile{grid-template-columns:minmax(0,1fr)}}
+.data{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:0}
+.data dt{font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:2px}
+.data dd{margin:0;font-weight:600}.data dd em{font-style:normal;color:var(--cyan)}
+.list{margin:16px 0 0;padding:0;list-style:none;display:grid;gap:8px}
+.list li{padding:8px 12px;background:var(--panel);border-left:3px solid var(--red);font-size:14px}
+.facts{margin:0;padding:0;list-style:none;display:grid;gap:8px;max-width:70ch}
+.facts li{font-size:14px;padding-left:14px;border-left:2px solid var(--line)}
+.facts li b{color:var(--red);font-family:var(--mono);margin-right:6px}
+.split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:820px){.split{grid-template-columns:minmax(0,1fr)}}
+.skills{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.skills div{background:var(--panel);padding:12px;border-top:2px solid var(--cyan);font-size:14px}
+.skills b{display:block;font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--cyan);margin-bottom:2px}
+.enemy figcaption .tag{display:block;font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
+.enemy figcaption h3{font:700 18px var(--head);text-transform:uppercase;margin:2px 0 6px;color:var(--fg)}
+.enemy figcaption p{margin:0;font-family:var(--body);font-size:14px;color:#cfd6dc}
+.txtfile{background:#14110a;border:1px solid #4d4224;padding:22px 26px;max-width:62ch;font:600 28px/1.3 var(--hand);color:#ffd36b;transform:rotate(-.5deg)}
+.txtfile small{display:block;font:400 13px var(--mono);color:#a8955f;margin-top:10px}
+.denied{font:600 14px var(--mono);color:var(--red);border:1px solid var(--red);padding:14px 16px;max-width:60ch;background:rgba(255,47,75,.06)}
+.denied b{display:block;font-size:18px;letter-spacing:.12em;margin-bottom:6px}
+.stamp{display:inline-block;font:700 18px var(--head);color:var(--red);border:3px solid var(--red);padding:0 10px;transform:rotate(-5deg);letter-spacing:.12em;margin-left:10px;vertical-align:middle}
+h1{font:700 clamp(30px,5vw,46px)/1 var(--head);text-transform:uppercase;margin:0 0 4px;display:inline-block;text-shadow:2px 0 rgba(255,47,75,.75),-2px 0 rgba(62,230,255,.75)}
+.status{display:flex;flex-wrap:wrap;gap:6px 18px;padding:7px 12px;border-top:1px solid var(--line);font:500 12px var(--mono);color:var(--muted);background:#0a0c11}
+.status b{color:var(--ok);font-weight:500}
+.status span:last-child::after{content:"█";margin-left:6px;color:var(--cyan);animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+/* экран */
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:15;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px),radial-gradient(ellipse at 50% 50%,transparent 60%,rgba(0,0,0,.55) 100%);animation:flick 6s steps(1) infinite}
+body::before{content:"";position:fixed;left:0;right:0;height:120px;top:-140px;pointer-events:none;z-index:16;background:linear-gradient(180deg,transparent,rgba(62,230,255,.07),transparent);animation:sweep 7s linear infinite}
+@keyframes flick{0%,100%{opacity:1}31%{opacity:.85}32%{opacity:1}74%{opacity:.9}75%{opacity:1}}
+@keyframes sweep{to{top:110vh}}
+.gl{animation:imgl .38s steps(2) 1}
+@keyframes imgl{20%{transform:translate(-6px,2px);filter:hue-rotate(80deg) saturate(2.2) contrast(1.4);clip-path:inset(12% 0 55% 0)}40%{transform:translate(5px,-2px);filter:invert(.12) hue-rotate(-60deg);clip-path:inset(48% 0 18% 0)}60%{transform:translate(-3px,0);filter:brightness(1.6) saturate(0);clip-path:inset(0 0 70% 0)}80%{transform:translate(2px,1px);clip-path:inset(70% 0 0 0)}}
+#boot{position:fixed;inset:0;z-index:30;background:#030405;color:var(--cyan);font:500 15px/1.7 var(--mono);display:grid;place-content:center;padding:0 16px;cursor:pointer;transition:opacity .35s}
+#boot.off{opacity:0;pointer-events:none}
+#boot p{margin:0;white-space:pre-wrap;max-width:min(560px,92vw)}
+#boot p.r{color:var(--red)}#boot p.ok{color:var(--ok)}
+#boot .bar2{display:block;height:6px;background:#0d2a30;margin:10px 0;width:min(420px,80vw)}
+#boot .bar2 i{display:block;height:100%;width:0;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+.lb{position:fixed;inset:0;background:rgba(0,0,0,.92);display:grid;place-items:center;padding:16px;z-index:20;cursor:zoom-out}
+.lb img{max-height:92vh;width:auto;max-width:100%}
+.lbx{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));font:600 14px var(--mono);background:#000;color:#fff;border:1px solid #555;padding:6px 12px;cursor:pointer;z-index:21}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}#boot{display:none}}
+</style>
+</head><body>
+
+<div id="boot" role="status" aria-live="polite" title="Клик — пропустить"></div>
+<div class="wrap">
+  <div class="term">
+    <div class="tbar"><span class="dots"><i></i><i></i><i></i></span><span><b>NCNET</b> · DANGER GAL · ФАЙЛОВЫЙ АРХИВ ВЕРБОВКИ</span><span class="rt">● REC</span></div>
+    <nav class="path" id="path" aria-label="Путь"></nav>
+    <div class="body">
+      <aside class="tree" id="tree" aria-label="Папки"></aside>
+      <main class="pane" id="pane"></main>
+    </div>
+    <div class="status"><span>Канал: <b>зашифрован</b></span><span>Пользователь: фиксер · допуск 4</span><span id="cnt"></span></div>
+  </div>
+</div>
+
+<script>
+const F = {
+  profile: { n:"01", name:"01_ПРОФИЛЬ", note:"анкета кандидата", cls:"", html:`
+    <h1 class="dec" data-final="Сноу">Сноу</h1><span class="stamp">Секретно</span>
+    <p class="sub">Никс Сфаера · кандидат на контракт «Привой»</p>
+    <div class="profile">
+      <figure class="file"><img src="img/snow-mug.webp" alt="Магшот Сноу, NCPD, дело NC-2045-1187" width="1024" height="1280"><figcaption><b>mugshot_NC-2045-1187.img</b>Из базы NCPD.</figcaption></figure>
+      <div>
+        <dl class="data">
+          <dt>Имя</dt><dd>Никс Сфаера</dd><dt>Хэндл</dt><dd>Сноу</dd>
+          <dt>Возраст</dt><dd>18 · рост 158 см · вес 48 кг</dd>
+          <dt>Роль</dt><dd>Медтех · хирург · <em>снайпер</em></dd>
+          <dt>Откуда</dt><dd>НСС, семья учёных Biotechnica</dd>
+          <dt>Где искать</dt><dd>Бутик в Маленькой Европе, Уотсон. Подвал — операционная</dd>
+          <dt>Куратор</dt><dd>Валери Фокс, контрразведка Danger Gal</dd>
+          <dt>Наставник</dt><dd>Д-р Абрахам Вэнс, главный риппердок</dd>
+        </dl>
+        <ul class="list">
+          <li>Родители возглавляли в Biotechnica отдел сращивания живых тканей с имплантами. Из этого отдела вырос «Привой».</li>
+          <li>Хирургии учился по их архивам. Читает работы Biotechnica как родной язык.</li>
+          <li>Каждую неделю штопает наших агентов, которые срываются на «Привое».</li>
+          <li>Biotechnica когда-то хотела забрать его себе как «корпоративную собственность». Он этого не забыл.</li>
+        </ul>
+      </div>
+    </div>`},
+  surv: { n:"02", name:"02_СЛЕЖКА", note:"3 файла", cls:"cy", html:`
+    <h2>Слежка</h2><p class="sub">3 кадра · наружное наблюдение</p>
+    <div class="files">
+      <figure class="file"><img src="img/s-basement.webp" alt="Сноу оперирует в подвале бутика" width="1400" height="933"><figcaption><b>cam04_basement.img</b>14.02.2045, 23:37. Агент Danger Gal сорвался прямо на столе. Сноу уже видел ткань «Привоя» вживую.</figcaption></figure>
+      <figure class="file"><img src="img/s-archive.webp" alt="Сноу ночью изучает архив родителей" width="1400" height="868"><figcaption><b>cam11_window.img</b>Ночью сидит над записями отдела и фотографиями родителей. Ищет, кто довёл их работу до «Привоя».</figcaption></figure>
+      <figure class="file"><img src="img/s-car.webp" alt="Сноу и куратор в машине" width="1400" height="868"><figcaption><b>cam07_street.img</b>Встреча с Валери Фокс. Под защитой Danger Gal — значит, доступ к нашим каналам у него есть.</figcaption></figure>
+    </div>`},
+  crash: { n:"03", name:"03_ИНЦИДЕНТ_2041", note:"Южный Найт-Сити", cls:"red", html:`
+    <h2>Инцидент 2041</h2><p class="sub">Южный Найт-Сити · бунт рабочих</p>
+    <div class="split">
+      <figure class="file"><img src="img/crash.webp" alt="Сбитый ави семьи Сфаера" width="1400" height="788"><figcaption><b>scene_2041_reconstruct.img</b>Реконструкция по записям камер.</figcaption></figure>
+      <ul class="facts">
+        <li><b>2041</b>Ави семьи Сфаера летит на переговоры с Trauma Team над Южным Найт-Сити.</li>
+        <li><b>Бунт</b>Внизу бунт рабочих. Ави сбивают самодельной ракетой.</li>
+        <li><b>+15 мин</b>«Платиновая» бригада Trauma Team сначала зачищает периметр огнём на подавление и только потом подходит к обломкам.</li>
+        <li><b>Итог</b>Родители погибли. 13-летний Никс выжил в защитной капсуле кресла.</li>
+        <li><b>Вывод</b>«Корпоративные протоколы убивают». С тех пор он лечит по-своему.</li>
+      </ul>
+    </div>`},
+  combat: { n:"04", name:"04_БОЕВЫЕ_ДАННЫЕ", note:"оценка", cls:"cy", html:`
+    <h2>Боевые данные</h2><p class="sub">оценка вербовщика</p>
+    <div class="skills">
+      <div><b>Дальний бой</b>Снайпер. Карты ветров города и слепые зоны корпоративных камер знает наизусть.</div>
+      <div><b>Оборона</b>Штурмовые винтовки и дробовики. Свою клинику держит как «чистую зону».</div>
+      <div><b>Хирургия</b>Экстренная полевая хирургия, нейрооперации под руководством Вэнса.</div>
+      <div><b>Хром</b>Снаружи ничего не видно. Держит бьющегося киборга на столе одной рукой — значит, что-то есть.</div>
+    </div>`},
+  enemies: { n:"05", name:"05_ВРАГИ", note:"3 объекта", cls:"red", html:`
+    <h2>Известные враги</h2><p class="sub">3 объекта</p>
+    <div class="files">
+      <figure class="file enemy"><img src="img/damian-mug.webp" alt="Магшот Дамиана «Рикошета» Круса" width="1024" height="1280"><figcaption><span class="tag">Кровник</span><h3>Дамиан «Рикошет» Крус</h3><p>19 лет, соло из Южного Найт-Сити, дешёвый б/у хром. В 2041 году из-за эвакуации Сноу медики не подпустили его к умирающему брату, а шальная пуля убила его девушку. Ходит с друзьями.</p></figcaption></figure>
+      <figure class="file enemy"><img src="img/gustav-mug.webp" alt="Магшот Густава Фогеля" width="1024" height="1280"><figcaption><span class="tag">Обида</span><h3>Густав Фогель</h3><p>42 года, закройщик, бывший управляющий бутика. Уволен «за кражи» и уверен, что Сноу украл его клиентов и дело всей жизни. Про Danger Gal не знает. Ходит с подельниками.</p></figcaption></figure>
+      <figure class="file enemy"><img src="img/corp-id.webp" alt="Пропуск директора отдела с печатью «Цель»" width="1024" height="1280"><figcaption><span class="tag">Корпорация</span><h3>Директор отдела</h3><p>Имя не установлено. Уровень допуска 7. Сноу ему просто не нравится — а за ним стоит вся мощь корпорации.</p></figcaption></figure>
+    </div>`},
+  looks: { n:"06", name:"06_ВНЕШНОСТЬ", note:"2 файла", cls:"", html:`
+    <h2>Внешность</h2><p class="sub">из открытых источников</p>
+    <div class="files">
+      <figure class="file"><img src="img/snow-coat.webp" alt="Сноу в чёрном пальто" width="1178" height="1335"><figcaption><b>social_01.img</b>Чёрное пальто с неоновой отделкой. Всегда выглядит так, будто сошёл с обложки.</figcaption></figure>
+      <figure class="file"><img src="img/snow-art.webp" alt="Сноу в медицинской куртке" width="1178" height="1335"><figcaption><b>social_02.img</b>Медицинская куртка. Стиль — тоже часть профессии: у медика с деньгами стерильные инструменты.</figcaption></figure>
+    </div>`},
+  note: { n:"txt", name:"заметка_фиксера.txt", note:"1 КБ", cls:"", file:true, html:`
+    <div class="txtfile">Мальчик знает, что ищет. Главное — чтобы он не нашёл это раньше нас. Платить вовремя, к Валери без её ведома не подходить.<small>— пометка фиксера</small></div>`},
+  locked: { n:"07", name:"07_ВАЛЕРИ_ФОКС", note:"нет доступа", cls:"red", locked:true, html:`
+    <div class="denied"><b>ДОСТУП ЗАПРЕЩЁН</b>Папка зашифрована контрразведкой Danger Gal. Требуется допуск 6. Попытка входа записана.</div>`}
+};
+const ORDER = ["profile","surv","crash","combat","enemies","looks","locked","note"];
+const ROOT = ["DANGER_GAL","ВЕРБОВКА","ПРИВОЙ","СНОУ"];
+let cur = null;
+const pane = document.getElementById("pane"), tree = document.getElementById("tree"), path = document.getElementById("path");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const GL = "█▓▒░#@%&*/\\<>01СНОУЖФЩЯ";
+function scramble(el, final, ms){ if(reduce){el.textContent=final;return} const t0=performance.now(); const step=t=>{const k=Math.min(1,(t-t0)/ms),n=Math.floor(final.length*k); el.textContent=final.slice(0,n)+Array.from(final.slice(n),()=>GL[Math.floor(Math.random()*GL.length)]).join(""); if(k<1)requestAnimationFrame(step)}; requestAnimationFrame(step); }
+function folderIcon(f){ return f.file ? `<span class="fico" style="--c:#cfd6dc"><span class="back" style="background:#e9e4d8"></span></span>` : `<span class="fico"><span class="back"></span><span class="paper"></span><span class="front" data-n="${f.n}"></span></span>`; }
+function render(){
+  tree.innerHTML = `<button class="root ${cur?"":"on"}" data-go=""><span class="ico"></span>СНОУ/</button>` + ORDER.map(k=>{const f=F[k];return `<button class="${cur===k?"on":""}" data-go="${k}" style="padding-left:30px"><span class="ico ${f.file?"f":""}"></span>${f.name}</button>`}).join("");
+  path.innerHTML = (cur?`<button class="back" data-go="">← Назад</button>`:"") + ROOT.map((p,i)=> i<ROOT.length-1 ? `<span>${p}</span> /` : (cur?`<button data-go="">${p}</button> /`:`<span class="cur">${p}</span>`)).join(" ") + (cur?` <span class="cur">${F[cur].name}</span>`:"");
+  if(!cur){
+    pane.innerHTML = `<h2>Досье № 1 · Сноу</h2><p class="sub">${ORDER.length} объектов · открой папку</p><div class="grid">${ORDER.map(k=>{const f=F[k];return `<button class="fold ${f.cls}${f.locked?" locked":""}" data-go="${k}">${folderIcon(f)}<b>${f.name}</b><small>${f.note}</small></button>`}).join("")}</div>`;
+  } else {
+    pane.innerHTML = F[cur].html;
+    const d = pane.querySelector(".dec"); if(d) scramble(d, d.dataset.final, 800);
+  }
+  document.getElementById("cnt").textContent = cur ? `Открыто: ${F[cur].name}` : "Готов";
+  pane.classList.remove("opening"); void pane.offsetWidth; if(!reduce) pane.classList.add("opening");
+}
+function go(k){ cur = k || null; render(); try{ history.replaceState(null,"",k?"#"+k:location.pathname) }catch(e){} pane.focus?.({preventScroll:true}); }
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-go]"); if(g){ go(g.dataset.go); return; }
+  const im = e.target.closest(".pane img"); if(!im) return;
+  const lb = document.createElement("div"); lb.className="lb"; lb.setAttribute("role","dialog"); lb.setAttribute("aria-label",im.alt);
+  lb.innerHTML = `<img src="${im.getAttribute("src")}" alt="${im.alt}"><button class="lbx" type="button">Закрыть ✕</button>`;
+  const close=()=>{lb.remove();document.removeEventListener("keydown",kd)}; const kd=ev=>{if(ev.key==="Escape")close()};
+  lb.addEventListener("click",close); document.addEventListener("keydown",kd); document.body.appendChild(lb); lb.querySelector("button").focus();
+});
+document.addEventListener("keydown", e => { if(e.key==="Backspace" && cur && !e.target.closest("input,textarea")) { e.preventDefault(); go(""); } });
+const start = (location.hash||"").slice(1); cur = F[start] ? start : null; render();
+
+// загрузка с терминала
+(function(){
+  const boot = document.getElementById("boot");
+  if (reduce) { boot.remove(); return; }
+  const done = () => { boot.classList.add("off"); setTimeout(()=>boot.remove(),400); };
+  const lines = [["NCNET://danger-gal/secure · защищённое соединение…",""],["АВТОРИЗАЦИЯ: фиксер · допуск 4","ok"],["ДЕШИФРОВКА АРХИВА · ДОСЬЕ № 1","bar"],["ВНИМАНИЕ: сеанс записывается","r"]];
+  let i = 0; const next = () => { if(!boot.isConnected) return; if(i>=lines.length) return setTimeout(done,350);
+    const [txt,cls] = lines[i++]; const p=document.createElement("p"); if(cls && cls!=="bar") p.className=cls; boot.appendChild(p);
+    if(cls==="bar"){ p.textContent=txt; const b=document.createElement("span"); b.className="bar2"; b.innerHTML="<i></i>"; boot.appendChild(b); requestAnimationFrame(()=>{b.firstChild.style.transition="width .7s steps(12)"; b.firstChild.style.width="100%"}); return setTimeout(next,800); }
+    scramble(p,"> "+txt,320); setTimeout(next,380); };
+  boot.addEventListener("click",done); next(); setTimeout(()=>boot.isConnected&&done(),4500);
+  setInterval(()=>{ if(document.hidden) return; const pool=[...document.querySelectorAll(".pane img, .pane .fico, .pane .file")]; const el=pool[Math.floor(Math.random()*pool.length)]; if(!el) return;
+    el.classList.remove("gl"); void el.offsetWidth; el.classList.add("gl"); setTimeout(()=>el.classList.remove("gl"),420); }, 2600);
+})();
+</script>
+
+</body></html>

@@ -1,0 +1,5 @@
+.ncd-window .window-content { padding: 0; background: #07080b; overflow: hidden; }
+.ncd-frame, .ncd-frame iframe { width: 100%; height: 100%; border: 0; display: block; background: #07080b; }
+.ncd-panel { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+.ncd-row { display: grid; grid-template-columns: 1fr 170px auto auto; gap: 6px; align-items: center; }
+.ncd-row button { white-space: nowrap; }
