@@ -548,3 +548,5 @@
 #ncm-agent .ag-k-act button:hover { box-shadow: 0 0 8px currentColor; }
 .ncm-form .ncm-who { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; margin-top: 6px; }
 .ncm-form .ncm-who > span { flex-basis: 100%; font-weight: 700; }
+#ncm.ncm-arrange .ncm-pin[data-poi] { cursor: grab; outline: 1px dashed rgba(252,238,10,.7); outline-offset: 2px; }
+#ncm.ncm-arrange .ncm-pin[data-poi].dragging { cursor: grabbing; z-index: 50; outline: 2px solid #fcee0a; filter: drop-shadow(0 0 8px #fcee0a); }

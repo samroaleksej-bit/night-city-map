@@ -1215,5 +1215,8 @@ export default {
  "Кому виден": "Visible to",
  "Контакт сохранён в «Агенте».": "Contact saved in the Agent.",
  "Добавить в контакты «Агента»": "Add to Agent contacts",
- "Сбросить вызов": "Decline"
+ "Сбросить вызов": "Decline",
+ "Перетаскивать места по карте мышью": "Drag places around the map",
+ "Расставить": "Arrange",
+ "Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены.": "Arrange: drag places with the mouse, pan the map with the right button. Done locks them in place again."
 };

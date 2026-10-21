@@ -1,3 +1,13 @@
+## 0.18.0 — arrange
+
+- New **Arrange** button (GM): drag any place on the map with the mouse — built-in locations, your own points, shops and Night Markets. Right button still pans. Press **Done** (or Esc) and everything is fixed in place again, so nothing moves by accident during play.
+- The old one-by-one **Move** button in a place's panel still works.
+
+## 0.18.0 — расстановка
+
+- Кнопка **«Расставить»** (мастер): любое место на карте перетаскивается мышью — встроенные, свои точки, магазины и Ночные рынки. Карта двигается правой кнопкой. Нажал «Готово» (или Esc) — всё снова закреплено, и во время игры ничего случайно не сдвинется.
+- Кнопка «Переместить» в панели места тоже осталась.
+
 ## 0.17.1
 
 - English: the Decline button on an incoming call no longer says “Reset”.

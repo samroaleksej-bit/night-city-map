@@ -532,6 +532,7 @@ const UI = {
           <button data-act="gen-shops" title="${T("Расставить случайные магазины по городу")}"><i class="fas fa-cart-shopping"></i> ${T("Магазины")}</button>
           <button data-act="gen-markets" title="${T("Расставить Ночные рынки: репутация и фиксер для входа")}"><i class="fas fa-moon"></i> ${T("Ночные рынки")}</button>
           <button data-act="mode-pin" title="${T("Добавить свою точку")}"><i class="fas fa-location-dot"></i> ${T("Точка")}</button>
+          <button data-act="mode-arrange" title="${T("Перетаскивать места по карте мышью")}"><i class="fas fa-up-down-left-right"></i> ${T("Расставить")}</button>
           <button data-act="mode-roads" title="${T("Сетка дорог для маршрутов: показать и дорисовать")}"><i class="fas fa-road"></i> ${T("Дороги")}</button>
           <button data-act="places" title="${T("Места на карте: вернуть убранные, экспорт и импорт")}"><i class="fas fa-map-location-dot"></i> ${T("Места")}</button>
           <button data-act="share" title="${T("Открыть карту у всех игроков на этом месте")}"><i class="fas fa-satellite-dish"></i> ${T("Показать всем")}</button>` : ""}
@@ -699,7 +700,7 @@ const UI = {
   renderHint() {
     const h = this.el.querySelector(".ncm-hint");
     const msg = { route: T("Маршрут: кликайте по карте или точкам — каждый клик добавляет поворот. Тяните карту мышью, чтобы сдвинуть. Правый клик — убрать последнюю точку."),
-      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой.") }[this.mode];
+      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой.") }[this.mode];
     const st = state();
     const clr = this.mode === "party" && st.party ? `<button data-act="party-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>`
       : this.mode === "me" && st.players?.[game.user.id] ? `<button data-act="me-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>` : "";
@@ -708,6 +709,7 @@ const UI = {
     this.el.querySelectorAll(".ncm-modes button").forEach(b => b.classList.toggle("on", b.dataset.act === `mode-${this.mode}`));
     this.vp.classList.toggle("ncm-pick", this.mode !== "browse");
     this.el.classList.toggle("ncm-roadsmode", this.mode === "roads");
+    this.el.classList.toggle("ncm-arrange", this.mode === "arrange");
   },
 
   /* ------------------------------------------------ панель справа */
@@ -1038,6 +1040,8 @@ const UI = {
     vp.addEventListener("pointerdown", (ev) => {
       if (ev.button > 2 || ev.target.closest("button:not(.ncm-pin), .ncm-hint, .ncm-dist")) return;
       if (ev.button === 1) ev.preventDefault();
+      const dragPin = this.mode === "arrange" && ev.button === 0 && isGM() && ev.target.closest(".ncm-pin[data-poi]");
+      if (dragPin) { this.pdrag = { id: dragPin.dataset.poi, el: dragPin, x: ev.clientX, y: ev.clientY, moved: false }; vp.setPointerCapture(ev.pointerId); return; }
       if (this.mode === "roads" && ev.button === 0 && isGM()) {
         const f = this.toFrac(ev); this.stroke = { t: this.brush?.t ?? "road", w: this.brush?.w ?? 0.006, p: [[f.x, f.y]] };
         vp.setPointerCapture(ev.pointerId); return this.drawStroke();
@@ -1047,6 +1051,8 @@ const UI = {
     });
     vp.addEventListener("pointermove", (ev) => {
       if (this.mode === "route") this.rubber(ev);
+      if (this.pdrag) { const pd = this.pdrag; if (Math.abs(ev.clientX - pd.x) + Math.abs(ev.clientY - pd.y) > 3) pd.moved = true;
+        if (pd.moved) { const f = this.toFrac(ev); pd.f = f; pd.el.style.left = `${f.x * 100}%`; pd.el.style.top = `${f.y * 100}%`; pd.el.classList.add("dragging"); } return; }
       if (this.stroke) { const f = this.toFrac(ev), l = this.stroke.p.at(-1); if (Math.hypot(f.x - l[0], f.y - l[1]) > 0.002) { this.stroke.p.push([+f.x.toFixed(5), +f.y.toFixed(5)]); this.drawStroke(); } return; }
       const d = this.drag; if (!d) return;
       const dx = ev.clientX - d.x, dy = ev.clientY - d.y;
@@ -1054,6 +1060,12 @@ const UI = {
       if (d.moved) { this.view.x = d.vx + dx; this.view.y = d.vy + dy; this.apply(); vp.classList.add("ncm-grab"); }
     });
     vp.addEventListener("pointerup", (ev) => {
+      if (this.pdrag) { const pd = this.pdrag; this.pdrag = null; pd.el.classList.remove("dragging");
+        if (!pd.moved || !pd.f) return this.select(pd.id);
+        const { x, y } = pd.f, id = pd.id;
+        return save(s => { const pin = s.pins.find(q => q.id === id) ?? s.shops.find(q => q.id === id) ?? s.markets.find(q => q.id === id);
+          if (pin) Object.assign(pin, { x, y }); else s.poi[id] = { ...(s.poi[id] ?? {}), x, y }; }).then(() => { if (this.sel === id) this.renderPanel(); });
+      }
       if (this.stroke) { const st = this.stroke; this.stroke = null; return save(s => { s.roads = [...(s.roads ?? []), st]; }); }
       const d = this.drag; this.drag = null; vp.classList.remove("ncm-grab");
       if (!d || d.moved) return;
@@ -1246,6 +1258,7 @@ const UI = {
       }
       case "places": return this.renderPlaces();
       case "mode-roads": return this.setMode("roads");
+      case "mode-arrange": return this.setMode("arrange");
       case "brush": this.brush.t = b.dataset.t; return this.renderPanel();
       case "roads-undo": return save(s => { s.roads = (s.roads ?? []).slice(0, -1); });
       case "roads-clear": { const ok = await Dialog.confirm({ title: T("Дороги"), content: `<p>${T("Сбросить все свои правки дорог?")}</p>` }); if (ok) return save(s => { s.roads = []; }); return; }
