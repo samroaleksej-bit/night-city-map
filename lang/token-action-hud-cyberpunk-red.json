@@ -1,0 +1,111 @@
+{
+  "tokenActionHud": {
+    "template": {
+      "activeEffects": "Активные эффекты",
+      "effects": "Эффекты",
+      "endTurn": "Завершить ход",
+      "injury": "Критические ранения / состояния",
+      "injuryTooltip": "<p>ЛКМ по ранению — убрать. ПКМ — открыть описание</p>",
+      "languages": {
+        "languageArabic": "Язык (Арабский)",
+        "languageBengali": "Язык (Бенгальский)",
+        "languageBerber": "Язык (Берберский)",
+        "languageBurmese": "Язык (Бирманский)",
+        "languageCantonese": "Язык (Кантонский)",
+        "languageCree": "Язык (Кри)",
+        "languageCreole": "Язык (Креольский)",
+        "languageDari": "Язык (Дари)",
+        "languageDutch": "Язык (Нидерландский)",
+        "languageEnglish": "Язык (Английский)",
+        "languageFarsi": "Язык (Фарси)",
+        "languageFilipino": "Язык (Филиппинский)",
+        "languageFinnish": "Язык (Финский)",
+        "languageFrench": "Язык (Французский)",
+        "languageGerman": "Язык (Немецкий)",
+        "languageGuarani": "Язык (Гуарани)",
+        "languageHausa": "Язык (Хауса)",
+        "languageHawaiian": "Язык (Гавайский)",
+        "languageHebrew": "Язык (Иврит)",
+        "languageHindi": "Язык (Хинди)",
+        "languageIndonesian": "Язык (Индонезийский)",
+        "languageItalian": "Язык (Итальянский)",
+        "languageJapanese": "Язык (Японский)",
+        "languageKhmer": "Язык (Кхмерский)",
+        "languageKorean": "Язык (Корейский)",
+        "languageLingala": "Язык (Лингала)",
+        "languageMalayan": "Язык (Малайский)",
+        "languageMandarin": "Язык (Мандаринский)",
+        "languageMaori": "Язык (Маори)",
+        "languageMayan": "Язык (Майяский)",
+        "languageMongolian": "Язык (Монгольский)",
+        "languageNavajo": "Язык (Навахо)",
+        "languageNepali": "Язык (Непальский)",
+        "languageNorwegian": "Язык (Норвежский)",
+        "languageOromo": "Язык (Оромо)",
+        "languagePama": "Язык (Пама)",
+        "languagePolish": "Язык (Польский)",
+        "languagePortuguese": "Язык (Португальский)",
+        "languageQuechua": "Язык (Кечуа)",
+        "languageRomanian": "Язык (Румынский)",
+        "languageRussian": "Язык (Русский)",
+        "languageSinhalese": "Язык (Сингальский)",
+        "languageSpanish": "Язык (Испанский)",
+        "languageSwahili": "Язык (Суахили)",
+        "languageSwedish": "Язык (Шведский)",
+        "languageTahitian": "Язык (Таитянский)",
+        "languageTamil": "Язык (Тамильский)",
+        "languageTurkish": "Язык (Турецкий)",
+        "languageTwi": "Язык (Тви)",
+        "languageUkrainian": "Язык (Украинский)",
+        "languageUrdu": "Язык (Урду)",
+        "languageVietnamese": "Язык (Вьетнамский)",
+        "languageYoruba": "Язык (Йоруба)"
+      },
+      "ledgers": "Учёт",
+      "night-city-mooks": {
+        "lowdown": {
+          "name": "Сводка",
+          "hint": "Проверки на ХАР, ЭМП или ВОЛЮ"
+        },
+        "martial": {
+          "name": "Боевые",
+          "hint": "Проверки атаки"
+        },
+        "physical": {
+          "name": "Физические",
+          "hint": "Проверки на ТЕЛ, РЕА или ЛВК, не входящие в боевые навыки, а также уклонение"
+        },
+        "technical": {
+          "name": "Технические",
+          "hint": "Проверки на ИНТ или ТЕХ"
+        }
+      },
+      "settings": {
+        "displayUnequipped": {
+          "hint": "Показывать ли неэкипированные предметы на HUD",
+          "name": "Показывать неэкипированное"
+        },
+        "displayMookSkillWithZeroMod": {
+          "name": "Показывать навыки статистов с модификатором 0"
+        },
+        "displayCharacterSkillWithZeroMod": {
+          "name": "Показывать навыки игроков с модификатором 0"
+        },
+        "equipThrownWeapon": {
+          "hint": "Если включено, персонажам и статистам без предмета «Метательное оружие» он будет автоматически добавлен в инвентарь.",
+          "name": "Автоматически экипировать «Метательное оружие»"
+        },
+        "equipUnarmed": {
+          "hint": "Если включено, персонажам и статистам без предмета «Безоружный» он будет автоматически добавлен в инвентарь.",
+          "name": "Автоматически экипировать «Безоружный»"
+        }
+      },
+      "standard": "Стандартные",
+      "utility": "Вспомогательные",
+      "visibility": {
+        "makeInvisible": "Сделать невидимым",
+        "makeVisible": "Сделать видимым"
+      }
+    }
+  }
+}

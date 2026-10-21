@@ -1,0 +1,16 @@
+{
+  "PNEUMA_VISUALTOOLS.ChatCardsName": "Переоформление карточек чата",
+  "PNEUMA_VISUALTOOLS.ChatCardsHint": "Портреты и компактные блоки действия/результата в сообщениях чата. Нужна перезагрузка.",
+  "PNEUMA_VISUALTOOLS.ChatPortraitSourceName": "Портрет в чате",
+  "PNEUMA_VISUALTOOLS.ChatPortraitSourceHint": "Настройка мастера для всех. Какое изображение предпочитать для портретов атакующего и защитника — токена или актёра; если его нет, берётся другое. Нужна перезагрузка.",
+  "PNEUMA_VISUALTOOLS.ChatTokenImage": "Изображение токена",
+  "PNEUMA_VISUALTOOLS.ChatActorImage": "Изображение актёра",
+  "PNEUMA_VISUALTOOLS.ChatFallbackImageName": "Запасной портрет в чате",
+  "PNEUMA_VISUALTOOLS.ChatFallbackImageHint": "Настройка мастера для всех. Путь или URL изображения для сообщений без арта токена или актёра. Оставьте пустым — будет пустой портрет. Нужна перезагрузка.",
+  "PNEUMA_VISUALTOOLS.ChatRecipients": "Показать или скрыть получателей",
+  "PNEUMA_VISUALTOOLS.ChatSkinName": "Стиль карточек чата",
+  "PNEUMA_VISUALTOOLS.ChatSkinHint": "Pneuma Hub повторяет цветовую схему других модулей, например Combat Tools. Minimal и Ultra Compact используют родные (или перекрашенные) цвета темы Cyberpunk.",
+  "PNEUMA_VISUALTOOLS.ChatSkinTechnical": "Cyberpunk Минимал",
+  "PNEUMA_VISUALTOOLS.ChatSkinCompact": "Cyberpunk Минимал — компактный",
+  "PNEUMA_VISUALTOOLS.ChatSkinCompactHub": "Pneuma Hub — компактный"
+}

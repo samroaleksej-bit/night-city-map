@@ -1,0 +1,164 @@
+{
+  "I18N.LANGUAGE": "Русский",
+  "gambitsEmoteBar": {
+    "controls": {
+      "emoteBar": {
+        "title": "Панель эмоций",
+        "resetOrderAZ": "Сбросить порядок эмоций",
+        "resetOrderAZDone": "Порядок эмоций сброшен на А–Я."
+      }
+    },
+    "selector": {
+      "sequencer": {
+        "leftEye": "Левый глаз",
+        "rightEye": "Правый глаз",
+        "mouth": "Рот",
+        "nose": "Нос"
+      }
+    },
+    "keybinds": {
+      "toggleEmoteBar": {
+        "name": "Панель эмоций вкл/выкл",
+        "hint": "Нажмите, чтобы открыть/закрыть панель эмоций"
+      }
+    },
+    "menu": {
+      "emote": {
+        "laugh": "Смех",
+        "angry": "Злость",
+        "surprised": "Удивление",
+        "shout": "Крик",
+        "drunk": "Пьяный (нос)",
+        "soul": "Душа",
+        "slap": "Пощёчина",
+        "cry": "Плач (глаза)",
+        "offset": "Настроить смещения (глаза, рот, нос)",
+        "disgusted": "Отвращение",
+        "giggle": "Хихиканье",
+        "love": "Любовь",
+        "rofl": "Катаюсь от смеха",
+        "smoking": "Курит (рот)",
+        "nervous": "Нервничает",
+        "party": "Вечеринка",
+        "thunderHype": "ГРОМ!",
+        "thankYou": "Спасибо",
+        "wink": "Подмигивание",
+        "smug": "Самодовольство",
+        "huh": "А?",
+        "confused": "Растерянность",
+        "whistle": "Свист (рот)",
+        "filepicker": "Звуки эмоций по умолчанию",
+        "endAll": "Снять все ваши эмоции",
+        "registerDialog": "Добавить свою эмоцию",
+        "hideUnhideEmote": "Скрыть/показать эмоции",
+        "bloodied": "Окровавлен",
+        "suspicious": "Подозрение (глаза)",
+        "endAllSelected": "Снять эмоции с выбранных токенов",
+        "endAllAll": "Снять эмоции со всех токенов",
+        "playMode": {
+          "permanent": "Постоянные",
+          "timed": "По таймеру",
+          "seconds": "сек",
+          "toggleTooltip": "Переключить постоянные / по таймеру",
+          "durationTooltip": "В режиме таймера эмоции снимаются автоматически через столько секунд"
+        }
+      }
+    },
+    "log": {
+      "warning": {
+        "noEffect": "Для эмоции не задан эффект:",
+        "pleaseSelectOneToken": "Выберите хотя бы один токен.",
+        "noPermission": "У вас нет прав использовать эмоции на выбранных токенах.",
+        "selectMultiple": "Зажмите Shift, чтобы выбрать несколько эмоций, ЕСЛИ ОСМЕЛИТЕСЬ.",
+        "selectSingle": "Выберите один токен, чтобы настроить смещения.",
+        "handleEmoteClick": "Ошибка при выполнении макроса своей эмоции:"
+      }
+    },
+    "dialog": {
+      "placeholder": {
+        "openIconPicker": "Поиск иконок...",
+        "emoteName": "Название эмоции...",
+        "emoteTooltipText": "Текст подсказки...",
+        "soundFilePath": "Путь к звуковому файлу...",
+        "preset": "Выберите встроенную эмоцию..."
+      },
+      "window": {
+        "openIconPicker": "Выбрать иконку",
+        "registerCustomEmote": "Добавить свою эмоцию",
+        "editMacroCode": "Редактировать код макроса",
+        "manageHidingEmotes": "Скрытие эмоций",
+        "customEmoteMacros": "Макросы своих эмоций",
+        "pickIcon": "Выбрать иконку",
+        "emoteSoundFiles": "Выбрать звуки эмоций",
+        "editTriggers": "Редактировать триггеры",
+        "editTrigger": "Редактировать триггер",
+        "newTrigger": "Новый триггер",
+        "manageTriggers": "Управление триггерами"
+      },
+      "field": {
+        "uniqueEmoteName": "Уникальное название эмоции:",
+        "emoteTooltipText": "Текст подсказки:",
+        "emoteIcon": "Иконка эмоции:",
+        "macro": "Макрос:",
+        "generatedName": ".name:",
+        "macroCode": "Код макроса:",
+        "triggers": "Триггеры:",
+        "openTriggers": "Открыть триггеры",
+        "hook": "Хук:",
+        "target": "Цель:",
+        "tokenIds": "ID токенов:",
+        "tokens": "Токены:",
+        "duration": "Длительность:",
+        "hpThreshold": "Порог ПЗ, %:",
+        "preset": "Пресет:"
+      },
+      "tooltip": {
+        "generatedName": "Для постоянного эффекта укажите это значение .name (если пропустить, всё СЛОМАЕТСЯ)",
+        "openTriggers": "Открыть список триггеров этой эмоции",
+        "tokenIds": "Несколько ID разделяйте запятой",
+        "duration": "Значение в секундах",
+        "trigger": "Триггер",
+        "triggers": "Триггеры",
+        "requiresJB2APatreon": "Доступно с патреон-модулем JB2A.",
+        "requiresEskiePatreon": "Доступно с патреон-модулем Eskie Effects.",
+        "preset": "Вставить код встроенной эмоции как основу (сначала нужно название эмоции)."
+      },
+      "button": {
+        "select": "Выбрать",
+        "cancel": "Отмена",
+        "saveEmote": "Сохранить эмоцию",
+        "pickIcon": "Выбрать иконку",
+        "save": "Сохранить",
+        "close": "Закрыть",
+        "edit": "Изменить",
+        "delete": "Удалить",
+        "configureTriggers": "Настроить триггеры",
+        "openTriggers": "Открыть триггеры"
+      },
+      "heading": {
+        "defaultEmotes": "Эмоции по умолчанию",
+        "customEmotes": "Свои эмоции",
+        "browseSoundFiles": "Обзор звуковых файлов"
+      },
+      "message": {
+        "noDefaultEmotes": "Эмоций по умолчанию нет.",
+        "noCustomEmotes": "Своих эмоций нет.",
+        "noTriggers": "Триггеров нет."
+      },
+      "playmode": {
+        "locked": "Нельзя переключать режим таймера/постоянный, пока играет эмоция по таймеру."
+      }
+    },
+    "error": {
+      "uniqueEmoteNameNoSpaces": "Уникальное название эмоции не может содержать пробелы.",
+      "fillAllFields": "Заполните все поля.",
+      "emoteNameExists": "Эмоция с таким названием уже есть. Выберите уникальное."
+    },
+    "settings": {
+      "disableTokenControls": {
+        "name": "Отключить кнопки панели эмоций у токенов",
+        "hint": "Скрыть значок панели эмоций с панели управления токенами (открывать горячей клавишей)."
+      }
+    }
+  }
+}

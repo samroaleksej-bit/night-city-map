@@ -1,0 +1,98 @@
+{
+  "id": "ru-modules-pack",
+  "title": "Русский перевод модулей (CPR-набор)",
+  "description": "Русская локализация модулей, которых нет в ru-ru: Automated Animations, Pneuma's Combat/Scene/Visual Tools, Token Action HUD CPR, Cyberpunk RED Vehicles, Evasion Workflow, Diwako's Additions, Gambit's Emote Bar, libWrapper, DFreds Droppables, D&D5e Animations, CPR Agent. Оригинальные модули не изменяются: перевод подключается, только если нужный модуль включён.",
+  "version": "0.1.0",
+  "authors": [
+    {
+      "name": "AlexeySamro"
+    }
+  ],
+  "compatibility": {
+    "minimum": "12",
+    "verified": "12"
+  },
+  "languages": [
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/autoanimations.json",
+      "module": "autoanimations"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/cpr-agent.json",
+      "module": "cpr-agent"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/cpred-evasion-workflow.json",
+      "module": "cpred-evasion-workflow"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/cyberpunk-red-vehicles.json",
+      "module": "cyberpunk-red-vehicles"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/dfreds-droppables.json",
+      "module": "dfreds-droppables"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/diwako-cpred-additions.json",
+      "module": "diwako-cpred-additions"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/dnd5e-animations.json",
+      "module": "dnd5e-animations"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/gambitsEmoteBar.json",
+      "module": "gambitsEmoteBar"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/lib-wrapper.json",
+      "module": "lib-wrapper"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/pneuma-combattools.json",
+      "module": "pneuma-combattools"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/pneuma-scenetools.json",
+      "module": "pneuma-scenetools"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/pneuma-visualtools.json",
+      "module": "pneuma-visualtools"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/token-action-hud-cyberpunk-red.json",
+      "module": "token-action-hud-cyberpunk-red"
+    }
+  ],
+  "url": "https://github.com/samroaleksej-bit/night-city-map/tree/ru-modules-pack",
+  "manifest": "https://raw.githubusercontent.com/samroaleksej-bit/night-city-map/ru-modules-pack/module.json",
+  "download": "https://github.com/samroaleksej-bit/night-city-map/archive/refs/heads/ru-modules-pack.zip"
+}

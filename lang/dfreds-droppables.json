@@ -1,0 +1,33 @@
+{
+  "Droppables": {
+    "DropActorsFolder": "Выложить папку актёров",
+    "DropButton": "Выложить",
+    "DropStyle": "Способ размещения",
+    "DropExplanation": "Как расположить актёров из папки на холсте?",
+    "StackedUp": "Стопкой",
+    "Randomly": "Случайно",
+    "HorizontalLine": "Линией слева направо",
+    "VerticalLine": "Линией сверху вниз",
+    "Elevation": "Высота",
+    "ElevationOptional": "Высота (необязательно)",
+    "NoUploadFiles": "У вас нет прав на загрузку файлов.",
+    "NoCreateJournals": "У вас нет прав на создание журналов.",
+    "NoCreateNotes": "У вас нет прав на создание заметок.",
+    "NoCreateTokens": "У вас нет прав на создание токенов.",
+    "NoCreateActors": "У вас нет прав на создание актёров.",
+    "DropJournalFolder": "Выложить папку журналов",
+    "DropJournalFolderExplanation": "Выложить все записи журнала из {folderName} как пины?",
+    "ActorUploadExplanation": "Выберите тип актёра для каждого файла.",
+    "TokenActorTypes": "Типы актёров для токенов",
+    "Confirm": "Подтвердить",
+    "SettingDropStyle": "Способ размещения",
+    "SettingDropStyleHint": "Так элементы из папки будут выкладываться на холст. Вариант «Диалог» будет каждый раз спрашивать, какой способ использовать.",
+    "SettingDropStyleDialog": "Диалог",
+    "SettingDropStyleStack": "Стопкой",
+    "SettingDropStyleRandom": "Случайно",
+    "SettingDropStyleHorizontalLine": "Горизонтальная линия",
+    "SettingDropStyleVerticalLine": "Вертикальная линия",
+    "SettingEnableCanvasDragUpload": "Перетаскивание и загрузка на холст",
+    "SettingEnableCanvasDragUploadHint": "Если включено, на холст можно перетаскивать и загружать токены, тайлы, звуки и записи журнала — в зависимости от выбранного слоя."
+  }
+}
