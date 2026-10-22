@@ -1249,5 +1249,14 @@ export default {
  "Улица: кликни начало улицы, потом конец.": "Street: click the street's start, then its end.",
  "Улицы": "Streets",
  "трасса": "highway",
- "Всегда показывать названия районов (если их нет на самой картинке)": "Always show district names (if the map image has none)"
+ "Всегда показывать названия районов (если их нет на самой картинке)": "Always show district names (if the map image has none)",
+ "Сцена места (боевая карта)": "Place scene (battle map)",
+ "— нет —": "— none —",
+ "Сцены мира": "World scenes",
+ "(сцена не найдена)": "(scene not found)",
+ "Карта: сцена не найдена. Проверь, что модуль с картами включён.": "Map: scene not found. Check that the maps module is enabled.",
+ "Сцена добавлена в мир:": "Scene added to the world:",
+ "Игроки перенесены:": "Players moved to:",
+ "Открыть сцену": "Open scene",
+ "Перенести игроков": "Move players"
 };

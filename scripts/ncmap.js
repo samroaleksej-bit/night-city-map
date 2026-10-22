@@ -760,6 +760,7 @@ const UI = {
         ${isGM() && p.notes ? `<div class="ncm-gm"><b>${T("Заметки мастера")}</b><p>${esc(p.notes)}</p></div>` : ""}
         ${qs.length ? `<h3><i class="fas fa-scroll"></i> ${T("Заказы")}</h3>${qs.map(qcard).join("")}` : ""}
         ${encBlock(p.x, p.y, d?.id)}
+        ${isGM() && p.scene ? `<div class="ncm-p-acts ncm-scene-acts"><button data-act="scene-view" data-id="${p.id}"><i class="fas fa-map"></i> ${T("Открыть сцену")}</button><button data-act="scene-show" data-id="${p.id}"><i class="fas fa-users"></i> ${T("Перенести игроков")}</button></div>` : ""}
         <div class="ncm-p-acts">
           <button data-act="route-from" data-id="${p.id}"><i class="fas fa-play"></i> ${T("Маршрут отсюда")}</button>
           <button data-act="route-to" data-id="${p.id}"><i class="fas fa-flag-checkered"></i> ${T("Маршрут сюда")}</button>
@@ -1422,6 +1423,8 @@ const UI = {
         if (!ok) return;
         this.sel = null; return save(s => { s.pins = s.pins.filter(x => x.id !== id); });
       }
+      case "scene-view": return openPlaceScene(id, false);
+      case "scene-show": return openPlaceScene(id, true);
       case "edit-poi": {
         const p = poiById(id);
         if (id.startsWith("c")) { const data = await pinDialog(p.name, p); if (!data) return; return save(s => { Object.assign(s.pins.find(x => x.id === id) ?? {}, data); }); }
@@ -1914,8 +1917,42 @@ function pinDialog(title, p = {}, { base = false } = {}) {
     <label>${T("Описание (видят игроки)")}<textarea name="desc" rows="4">${esc(p.desc ?? "")}</textarea></label>
     <label>${T("Картинка для досье")}<span class="ncm-fp"><input name="img" value="${esc(p.img ?? "")}" placeholder="${base ? T("пусто — арт модуля") : "worlds/…/bar.webp"}"><button type="button" data-fp="img" title="${T("Выбрать файл")}"><i class="fas fa-file-image"></i></button></span></label>
     <label>${T("Заметки мастера")}<textarea name="notes" rows="2">${esc(p.notes ?? "")}</textarea></label>
+    <label>${T("Сцена места (боевая карта)")}<select name="scene">${sceneOptions(p.scene)}</select></label>
     <label class="ncm-check"><input type="checkbox" name="hidden" ${p.hidden ? "checked" : ""}> ${T("Скрыть от игроков")}</label>
     <label class="ncm-check"><input type="checkbox" name="locked" ${p.locked ? "checked" : ""}> ${T("Защитить от удаления")}</label></form>`);
+}
+
+/** Сцены для привязки к месту: сцены мира и сцены из компендиумов (паки карт). */
+function sceneOptions(cur = "") {
+  const opt = (uuid, name) => `<option value="${esc(uuid)}"${uuid === cur ? " selected" : ""}>${esc(name)}</option>`;
+  const byName = (a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true });
+  let found = !cur, html = `<option value="">${T("— нет —")}</option>`;
+  const world = [...(game.scenes ?? [])].sort(byName);
+  if (world.length) html += `<optgroup label="${esc(T("Сцены мира"))}">${world.map(sc => { if (sc.uuid === cur) found = true; return opt(sc.uuid, sc.name); }).join("")}</optgroup>`;
+  for (const pack of game.packs.filter(pk => pk.documentName === "Scene")) {
+    const idx = [...pack.index].sort(byName); if (!idx.length) continue;
+    html += `<optgroup label="${esc(pack.title)}">${idx.map(e => { const u = e.uuid ?? `Compendium.${pack.collection}.Scene.${e._id}`; if (u === cur) found = true; return opt(u, e.name); }).join("")}</optgroup>`;
+  }
+  if (!found) html += opt(cur, T("(сцена не найдена)"));
+  return html;
+}
+/** Сцена места: из мира как есть, из компендиума — импорт один раз (потом берётся уже импортированная). */
+async function sceneOf(uuid) {
+  const doc = uuid ? await fromUuid(uuid).catch(() => null) : null;
+  if (!doc) { ui.notifications.warn(T("Карта: сцена не найдена. Проверь, что модуль с картами включён.")); return null; }
+  if (!doc.pack) return doc;
+  const have = game.scenes.find(sc => sc._stats?.compendiumSource === uuid || sc.getFlag?.("core", "sourceId") === uuid);
+  if (have) return have;
+  const sc = await game.scenes.importFromCompendium(game.packs.get(doc.pack), doc.id);
+  if (sc) ui.notifications.info(`${T("Сцена добавлена в мир:")} ${sc.name}`);
+  return sc;
+}
+async function openPlaceScene(id, show = false) {
+  const p = poiById(id); if (!p?.scene || !isGM()) return;
+  const sc = await sceneOf(p.scene); if (!sc) return;
+  UI.close?.();
+  if (show) { await sc.activate(); ui.notifications.info(`${T("Игроки перенесены:")} ${sc.name}`); }
+  else await sc.view();
 }
 
 function formDialog(title, content, okLabel = T("Сохранить")) {

@@ -1,3 +1,15 @@
+## 0.20.0 — place scenes
+
+- Any place on the map (built-in or your own) can be linked to a scene: **Edit** → **Place scene (battle map)**. The list shows world scenes and scenes from every Scene compendium (map packs).
+- In the place panel the GM gets **Open scene** (view it yourself) and **Move players** (activate it for everyone). A compendium scene is imported into the world once and reused after that.
+- Scene links travel with export/import.
+
+## 0.20.0 — сцены мест
+
+- К любому месту на карте (встроенному или своему) можно привязать сцену: **«Править»** → **«Сцена места (боевая карта)»**. В списке сцены мира и сцены из всех компендиумов сцен (паков карт).
+- В панели места у мастера кнопки **«Открыть сцену»** (посмотреть самому) и **«Перенести игроков»** (активировать для всех). Сцена из компендиума импортируется в мир один раз, дальше берётся уже импортированная.
+- Привязки переносятся экспортом и импортом.
+
 ## 0.19.0 — custom districts & streets
 
 - New **Districts** button (GM): your own districts and street labels for a custom map. Tick “Custom districts and streets instead of built-in” — the Night City 2045 ones stop showing up in addresses, encounters, shops and gigs.
