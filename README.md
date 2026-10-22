@@ -89,6 +89,8 @@ The built-in map image is **2079 × 2025 px** (about 1.03 : 1). Places, district
 - **Map width, km** (settings, default 14): the real width of the image, used for distances and travel time.
 - **Road grid image** (settings): the grid routes follow, **693 × 675 px** for the built-in map (a third of the map size). White = street, gray = land, black = water. Same proportions as your map; any resolution.
 - Small road fixes can be painted right on the map with the **Roads** button.
+- **Districts** button: your own district names (with danger) and street labels for a custom map, or start from the built-in ones and move/rename them. Addresses, encounters, shops and gigs follow them.
+- Moving your setup between worlds: **Places → Export / Import** carries points, place edits, roads, districts and streets, encounters, shops, markets, gigs and contacts.
 
 ## Language
 
@@ -119,6 +121,7 @@ Module code and texts: Verlierboy · [Circle of Masters](https://t.me/circleofdm
 - телефон «Агент»: чаты, контакты и голо-звонки (мастер звонит от имени NPC, игроки звонят контактам; своя мелодия — в настройках);
 - часы и календарь, синхронизация с Simple Calendar;
 - свои места, правка и перенос встроенных, свои встречи, экспорт и импорт;
+- своя карта: свои районы с опасностью и подписи улиц (кнопка «Районы»), своя сетка дорог;
 - покупки в магазинах прямо с карты (эдди списываются с персонажа);
 - компендиум из 24 NPC.
 
@@ -127,6 +130,8 @@ Module code and texts: Verlierboy · [Circle of Masters](https://t.me/circleofdm
 ```
 https://github.com/samroaleksej-bit/night-city-map/releases/latest/download/module.json
 ```
+
+**Своя карта:** картинку и сетку дорог (белое - улицы, серое - суша, чёрное - вода, те же пропорции) ставишь в настройках модуля. Районы и улицы - кнопка «Районы»: свои или встроенные за основу. Перенос всего между мирами - «Места» → Экспорт / Импорт.
 
 **Язык:** по умолчанию как у Foundry. Выбрать вручную можно в настройках модуля, пункт «Язык карты».
 

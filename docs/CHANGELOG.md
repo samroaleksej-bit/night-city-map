@@ -1,3 +1,23 @@
+## 0.19.0 — custom districts & streets
+
+- New **Districts** button (GM): your own districts and street labels for a custom map. Tick “Custom districts and streets instead of built-in” — the Night City 2045 ones stop showing up in addresses, encounters, shops and gigs.
+- **District** tool: click the map, name it, pick its danger (Corporate … Combat Zone … Hot Zone). Danger drives encounter threat, and Combat / Hot Zone danger turns the area around the label into that zone.
+- **Street** tool: click the start and the end of a street, name it. It becomes the address of nearby places.
+- Drag district and street labels to move them, click to edit; edit, redraw or delete from the list too.
+- **Start from built-in** copies the Night City 2045 districts and streets so you can just shift and rename them.
+- “Always show district names” — for map images that have no names printed on them.
+- Districts and streets travel with export/import (Places → Export), so edits made in a test world move to the main one.
+
+## 0.19.0 — свои районы и улицы
+
+- Кнопка **«Районы»** (мастер): свои районы и подписи улиц под свою карту. Включил «Свои районы и улицы вместо встроенных» — районы и улицы Найт-Сити 2045 больше не лезут в адреса, встречи, магазины и заказы.
+- Инструмент **«Район»**: клик по карте, название, опасность (Корпоративная … Боевая зона … Зона Поражения). От опасности зависят встречи, а «Боевая зона» и «Зона Поражения» делают территорию вокруг названия соответствующей зоной.
+- Инструмент **«Улица»**: клик в начало и в конец улицы, название. Она становится адресом ближайших мест.
+- Названия районов и улиц перетаскиваются мышью, клик - правка; править, перечертить и удалить можно и из списка.
+- **«Взять встроенные за основу»** копирует районы и улицы Найт-Сити 2045 - остаётся сдвинуть и переименовать.
+- «Всегда показывать названия районов» - для картинок, где названий нет.
+- Районы и улицы переносятся экспортом (Места → Экспорт), так что правки из тестового мира легко перенести в основной.
+
 ## 0.18.0 — arrange
 
 - New **Arrange** button (GM): drag any place on the map with the mouse — built-in locations, your own points, shops and Night Markets. Right button still pans. Press **Done** (or Esc) and everything is fixed in place again, so nothing moves by accident during play.

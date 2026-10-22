@@ -4,7 +4,7 @@
  * метка «Мы здесь» и показ карты игрокам. Состояние (квесты, правки точек, метка, общий маршрут)
  * хранится в настройке мира и сразу расходится всем клиентам.
  */
-import { MAP_SIZE, POIS, DISTRICTS, ZONES, STREETS } from "./data.js";
+import { MAP_SIZE, POIS, DISTRICTS as BASE_DISTRICTS, ZONES, STREETS as BASE_STREETS } from "./data.js";
 import { CATALOG, SHOP_TYPES, TIERS, stockFor, MARKET_CATS, MARKET_NAMES, marketStock } from "./shops.js";
 import { rollEncounter, threatOf, THREAT_RU, rollGig, FIXERS } from "./encounters.js";
 import { MOOKS, MOOK_PACK } from "./mooks.js";
@@ -42,14 +42,14 @@ const QSTATUS = { hidden: "Скрыт", offer: "Слух / предложени�
 
 /* ================================================================ настройки и состояние */
 
-const DEFAULT_STATE = { quests: [], pins: [], poi: {}, party: null, route: null, visited: [], shops: [], markets: [], night: false, clock: 0, players: {}, messages: [], contacts: [], encounters: [], encMode: "mix", roads: [] };
+const DEFAULT_STATE = { quests: [], pins: [], poi: {}, party: null, route: null, visited: [], shops: [], markets: [], night: false, clock: 0, players: {}, messages: [], contacts: [], encounters: [], encMode: "mix", roads: [], geo: { on: false, districts: [], streets: [] } };
 
 Hooks.once("init", () => {
   game.settings.register(MID, "lang", {
     name: "NCM.Settings.LangName", hint: "NCM.Settings.LangHint", scope: "client", config: true, type: String, default: "auto",
     choices: { auto: "NCM.Settings.LangAuto", ru: "Русский", en: "English" }, requiresReload: true
   });
-  game.settings.register(MID, "state", { scope: "world", config: false, type: Object, default: DEFAULT_STATE, onChange: () => { UI.refresh(); Agent.onState(); } });
+  game.settings.register(MID, "state", { scope: "world", config: false, type: Object, default: DEFAULT_STATE, onChange: () => { GEO = null; UI.refresh(); Agent.onState(); } });
   game.settings.register(MID, "image", {
     name: "NCM.Settings.ImageName", hint: "NCM.Settings.ImageHint",
     scope: "world", config: true, type: String, filePicker: "image", default: `modules/${MID}/assets/night-city-2045.webp`, onChange: () => UI.rebuild()
@@ -241,6 +241,20 @@ function chatTravel(d, name) {
   ChatMessage.create({ speaker: { alias: T("Найт-Сити") }, content: `<div class="ncm-chat"><div class="ncm-chat-k">${T("В ПУТИ ·")} ${esc(d.mode ?? "")}</div><b>${esc(d.who === "party" ? T("Группа") : name)}</b> → ${esc(d.to ?? "")}<br>${fmtMin(d.min)} · ${(d.km ?? 0).toFixed(1)} ${T("км · теперь")} ${fmtClock().time}</div>` });
 }
 
+
+/* ================================================================ районы и улицы: встроенные или свои (для своей карты) */
+let GEO = null;
+/** Свои районы и улицы мастера. on — вместо встроенных Найт-Сити 2045. */
+function geo() {
+  if (GEO) return GEO;
+  let g = null; try { g = game.settings.get(MID, "state")?.geo; } catch (e) { /* ещё не зарегистрировано */ }
+  return GEO = { on: !!g?.on, show: !!g?.show, districts: clone(g?.districts ?? []), streets: clone(g?.streets ?? []) };
+}
+const geoOn = () => geo().on;
+const dists = () => geoOn() ? geo().districts : BASE_DISTRICTS;
+const streets = () => geoOn() ? geo().streets : BASE_STREETS;
+const DANGER_COLORS = ["#4aa3ff", "#2fbf4a", "#7bd88f", "#ff9f43", "#ff4d4d", "#ff2a6d"];
+
 /* ================================================================ данные */
 
 /** Все точки: базовые + метки мастера, с учётом правок мастера. Скрытые — только мастеру. */
@@ -258,7 +272,7 @@ const questsVisible = () => state().quests.filter(q => isGM() || q.status !== "h
 /** Ближайшая улица (из Cyberpunk 2077) к точке — для адреса места. */
 function streetNear(x, y) {
   let best = null, bd = Infinity;
-  for (const s of STREETS) {
+  for (const s of streets()) {
     if (s.hw) continue;
     const [ax, ay] = s.a, [bx, by] = s.b, vx = bx - ax, vy = (by - ay) * aspect;
     const t = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * aspect * vy) / (vx * vx + vy * vy || 1)));
@@ -270,7 +284,7 @@ function streetNear(x, y) {
 
 function districtAt(x, y) {
   let best = null, bd = Infinity;
-  for (const d of DISTRICTS) { if (d.id === "delbay" || d.id === "sanbay") continue; const dd = (d.x - x) ** 2 + (d.y - y) ** 2; if (dd < bd) { bd = dd; best = d; } }
+  for (const d of dists()) { if (d.id === "delbay" || d.id === "sanbay" || (geoOn() && !d.danger)) continue; const dd = (d.x - x) ** 2 + (d.y - y) ** 2; if (dd < bd) { bd = dd; best = d; } }
   return best;
 }
 function inPoly(x, y, poly) {
@@ -284,6 +298,7 @@ function inPoly(x, y, poly) {
 const aspect = MAP_SIZE.h / MAP_SIZE.w;
 const inCircle = (x, y, c) => Math.hypot(x - c.x, (y - c.y) * aspect) < c.r;
 function zoneAt(x, y) {
+  if (geoOn()) { const dg = districtAt(x, y)?.danger; return dg === 5 ? "hot" : dg === 4 ? "combat" : null; }
   if (inCircle(x, y, ZONES.hot)) return "hot";
   if (inPoly(x, y, ZONES.combat) && !inCircle(x, y, ZONES.glen)) return "combat";
   return null;
@@ -470,7 +485,7 @@ const UI = {
   rebuild() { if (this.el) { this.el.remove(); this.el = null; this.build(); } },
   refresh() {
     if (applyRoadEdits() && this.el) { this.path = []; if (this.route.length > 1) this.recalc(); this.renderRoads(); }
-    if (this.el) { this.renderMarkers(); this.renderSvg(); this.renderPanel(); this.renderQuestList(); }
+    if (this.el) { this.renderStreets(); this.renderLabels(); this.renderMarkers(); this.renderSvg(); this.renderPanel(); this.renderQuestList(); }
   },
   /** Сетка дорог поверх карты (только в режиме «Дороги»). */
   renderRoads() {
@@ -534,6 +549,7 @@ const UI = {
           <button data-act="mode-pin" title="${T("Добавить свою точку")}"><i class="fas fa-location-dot"></i> ${T("Точка")}</button>
           <button data-act="mode-arrange" title="${T("Перетаскивать места по карте мышью")}"><i class="fas fa-up-down-left-right"></i> ${T("Расставить")}</button>
           <button data-act="mode-roads" title="${T("Сетка дорог для маршрутов: показать и дорисовать")}"><i class="fas fa-road"></i> ${T("Дороги")}</button>
+          <button data-act="mode-geo" title="${T("Районы и подписи улиц: свои для своей карты")}"><i class="fas fa-signs-post"></i> ${T("Районы")}</button>
           <button data-act="places" title="${T("Места на карте: вернуть убранные, экспорт и импорт")}"><i class="fas fa-map-location-dot"></i> ${T("Места")}</button>
           <button data-act="share" title="${T("Открыть карту у всех игроков на этом месте")}"><i class="fas fa-satellite-dish"></i> ${T("Показать всем")}</button>` : ""}
         </div>
@@ -636,15 +652,16 @@ const UI = {
   /* ------------------------------------------------ слои */
   renderStreets() {
     const { w, h } = this.size();
-    this.el.querySelector(".ncm-streets").innerHTML = STREETS.map(s => {
+    this.el.querySelector(".ncm-streets").innerHTML = streets().map(s => {
       const ax = s.a[0] * w, ay = s.a[1] * h, bx = s.b[0] * w, by = s.b[1] * h;
       let ang = Math.atan2(by - ay, bx - ax) * 180 / Math.PI;
       if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
-      return `<div class="ncm-street${s.hw ? " hw" : ""}" title="${esc(s.en)}" style="left:${(ax + bx) / 2}px;top:${(ay + by) / 2}px;--a:${ang.toFixed(1)}deg">${esc(s.ru)}</div>`;
+      return `<div class="ncm-street${s.hw ? " hw" : ""}"${s.id ? ` data-street="${s.id}"` : ""} title="${esc(s.en ?? "")}" style="left:${(ax + bx) / 2}px;top:${(ay + by) / 2}px;--a:${ang.toFixed(1)}deg">${esc(s.ru)}</div>`;
     }).join("");
   },
   renderLabels() {
-    this.el.querySelector(".ncm-labels").innerHTML = DISTRICTS.map(d =>
+    this.el.classList.toggle("ncm-geoshow", geoOn() && geo().show);
+    this.el.querySelector(".ncm-labels").innerHTML = dists().map(d =>
       `<div class="ncm-dist d${d.danger}" data-dist="${d.id}" style="left:${d.x * 100}%;top:${d.y * 100}%">${esc(d.ru)}</div>`).join("");
   },
   renderMarkers() {
@@ -700,7 +717,7 @@ const UI = {
   renderHint() {
     const h = this.el.querySelector(".ncm-hint");
     const msg = { route: T("Маршрут: кликайте по карте или точкам — каждый клик добавляет поворот. Тяните карту мышью, чтобы сдвинуть. Правый клик — убрать последнюю точку."),
-      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой.") }[this.mode];
+      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint() }[this.mode];
     const st = state();
     const clr = this.mode === "party" && st.party ? `<button data-act="party-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>`
       : this.mode === "me" && st.players?.[game.user.id] ? `<button data-act="me-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>` : "";
@@ -710,12 +727,14 @@ const UI = {
     this.vp.classList.toggle("ncm-pick", this.mode !== "browse");
     this.el.classList.toggle("ncm-roadsmode", this.mode === "roads");
     this.el.classList.toggle("ncm-arrange", this.mode === "arrange");
+    this.el.classList.toggle("ncm-geomode", this.mode === "geo");
   },
 
   /* ------------------------------------------------ панель справа */
   renderPanel() {
     const panel = this.el.querySelector(".ncm-panel");
     if (this.mode === "roads") return this.renderRoadsPanel(panel);
+    if (this.mode === "geo") return this.renderGeoPanel(panel);
     if (this.mode === "route" || (this.route.length > 1 && !this.sel)) return this.renderRoutePanel(panel);
     const p = this.sel && poiById(this.sel);
     if (!p) { panel.classList.remove("on"); panel.innerHTML = ""; return; }
@@ -857,7 +876,7 @@ const UI = {
       <div class="ncm-p-body">
         <div class="ncm-rpick">
           <input list="ncm-poilist" data-route-add placeholder="${pts.length ? T("Добавить точку: место, магазин, район…") : T("Откуда: место, магазин, район…")}">
-          <datalist id="ncm-poilist">${allPois().map(x => `<option value="${esc(x.name)}">`).join("")}${DISTRICTS.filter(x => !["delbay", "sanbay"].includes(x.id)).map(x => `<option value="${esc(x.ru)}">`).join("")}${state().party ? `<option value="${T("Мы здесь")}">` : ""}${state().players?.[game.user.id] ? `<option value="${T("Я здесь")}">` : ""}</datalist>
+          <datalist id="ncm-poilist">${allPois().map(x => `<option value="${esc(x.name)}">`).join("")}${dists().filter(x => !["delbay", "sanbay"].includes(x.id)).map(x => `<option value="${esc(x.ru)}">`).join("")}${state().party ? `<option value="${T("Мы здесь")}">` : ""}${state().players?.[game.user.id] ? `<option value="${T("Я здесь")}">` : ""}</datalist>
           ${state().party ? `<button data-act="route-party" title="${T("Начать от метки «Мы здесь»")}"><i class="fas fa-users"></i></button>` : ""}
         </div>
         ${pts.length > 1 ? `
@@ -894,7 +913,7 @@ const UI = {
       if ((v === "мы здесь" || v === T("мы здесь").toLowerCase()) && state().party) pt = { ...state().party };
       if ((v === "я здесь" || v === T("я здесь").toLowerCase()) && state().players?.[game.user.id]) pt = { ...state().players[game.user.id] };
       const p = allPois().find(x => x.name.toLowerCase() === v) ?? allPois().find(x => x.name.toLowerCase().includes(v));
-      const d = DISTRICTS.find(x => x.ru.toLowerCase() === v);
+      const d = dists().find(x => x.ru.toLowerCase() === v);
       if (!pt && p) pt = { x: p.x, y: p.y, poi: p.id };
       if (!pt && d) pt = { x: d.x, y: d.y };
       if (!pt) return ui.notifications.warn(T("Карта: такое место не найдено."));
@@ -904,7 +923,7 @@ const UI = {
     });
   },
   renderDistrict(id) {
-    const d = DISTRICTS.find(x => x.id === id);
+    const d = dists().find(x => x.id === id);
     if (!d) return;
     this.sel = null;
     const panel = this.el.querySelector(".ncm-panel");
@@ -922,6 +941,110 @@ const UI = {
         ${inside.length ? `<h3>${T("Места района")}</h3><div class="ncm-list">${inside.map(p => `<button data-poi="${p.id}" style="--c:${(CATS[p.cat] ?? CATS.custom).color}"><span>${p.n ?? "•"}</span>${esc(p.name)}</button>`).join("")}</div>` : ""}
       </div>`;
     this.focus(d.x, d.y);
+  },
+
+  /* ------------------------------------------------ свои районы и улицы */
+  geoHint() {
+    if (!geoOn()) return T("Районы: включи свои районы и улицы в панели справа.");
+    const t = this.geoTool ?? "district";
+    if (t === "street") return this.geoA ? T("Теперь кликни, где улица заканчивается. Правый клик — отмена.") : T("Улица: кликни начало улицы, потом конец.");
+    return T("Район: кликни по карте, чтобы поставить название района. Названия и подписи улиц можно перетаскивать, клик — править.");
+  },
+  renderGeoPanel(panel) {
+    const g = geo(), t = this.geoTool ??= "district";
+    panel.classList.add("on");
+    const custom = !String(game.settings.get(MID, "image") ?? "").endsWith("night-city-2045.webp");
+    panel.innerHTML = `
+      <div class="ncm-p-head" style="--c:#f5e663">
+        <span class="ncm-p-cat"><i class="fas fa-signs-post"></i> ${T("Мастер")}</span>
+        <h2>${T("Районы и улицы")}</h2>
+        <button class="ncm-p-x" data-act="mode-off"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="ncm-p-body">
+        <p class="ncm-muted">${T("Для своей карты: свои районы, опасность и подписи улиц. По ним работают адреса мест, встречи, магазины и заказы.")}</p>
+        ${custom && !g.on ? `<div class="ncm-warn"><i class="fas fa-circle-info"></i> ${T("Стоит своя картинка карты, а районы и улицы пока встроенные — от Найт-Сити 2045.")}</div>` : ""}
+        <label class="ncm-check"><input type="checkbox" data-geo-on ${g.on ? "checked" : ""}> ${T("Свои районы и улицы вместо встроенных")}</label>
+        ${g.on ? `<label class="ncm-check"><input type="checkbox" data-geo-show ${g.show ? "checked" : ""}> ${T("Всегда показывать названия районов (если их нет на самой картинке)")}</label>` : ""}
+        ${g.on ? `
+        <div class="ncm-seg">${[["district", T("Район")], ["street", T("Улица")]].map(([k, l]) => `<button data-act="geo-tool" data-t="${k}" class="${t === k ? "on" : ""}">${l}</button>`).join("")}</div>
+        <div class="ncm-p-acts"><button data-act="geo-copy"><i class="fas fa-copy"></i> ${T("Взять встроенные за основу")}</button>
+          <button class="danger" data-act="geo-clear" ${g.districts.length + g.streets.length ? "" : "disabled"}><i class="fas fa-trash"></i> ${T("Очистить")}</button></div>
+        <h3>${T("Районы")} · ${g.districts.length}</h3>
+        ${g.districts.length ? g.districts.map(d => `<div class="ncm-own"><div><b style="color:${DANGER_COLORS[d.danger] ?? "#fff"}">${esc(d.ru)}</b><small>${DANGER[d.danger] ?? ""}</small></div>
+          <button data-act="geo-focus" data-x="${d.x}" data-y="${d.y}" title="${T("Показать")}"><i class="fas fa-crosshairs"></i></button>
+          <button data-act="geo-edit-d" data-id="${d.id}" title="${T("Править")}"><i class="fas fa-pen"></i></button>
+          <button data-act="geo-rm-d" data-id="${d.id}" title="${T("Удалить")}"><i class="fas fa-trash"></i></button></div>`).join("") : `<p class="ncm-muted">${T("Пока нет. Выбери «Район» и кликни по карте.")}</p>`}
+        <h3>${T("Улицы")} · ${g.streets.length}</h3>
+        ${g.streets.length ? g.streets.map(st => `<div class="ncm-own"><div><b>${esc(st.ru)}</b>${st.hw ? `<small>${T("трасса")}</small>` : ""}</div>
+          <button data-act="geo-focus" data-x="${(st.a[0] + st.b[0]) / 2}" data-y="${(st.a[1] + st.b[1]) / 2}" title="${T("Показать")}"><i class="fas fa-crosshairs"></i></button>
+          <button data-act="geo-redraw" data-id="${st.id}" title="${T("Перечертить: два клика по карте")}"><i class="fas fa-pen-ruler"></i></button>
+          <button data-act="geo-edit-s" data-id="${st.id}" title="${T("Править")}"><i class="fas fa-pen"></i></button>
+          <button data-act="geo-rm-s" data-id="${st.id}" title="${T("Удалить")}"><i class="fas fa-trash"></i></button></div>`).join("") : `<p class="ncm-muted">${T("Пока нет. Выбери «Улица» и кликни начало и конец.")}</p>`}
+        <p class="ncm-muted">${T("Опасность «Боевая зона» и «Зона Поражения» делает территорию вокруг названия района соответствующей зоной. «Вода» — подпись без района.")}</p>` : ""}
+        <p class="ncm-muted">${T("Районы и улицы попадают в экспорт карты («Места» → Экспорт).")}</p>
+      </div>`;
+    panel.querySelector("[data-geo-show]")?.addEventListener("change", (ev) => { const show = ev.target.checked; save(s => { s.geo.show = show; }); });
+    panel.querySelector("[data-geo-on]")?.addEventListener("change", (ev) => {
+      const on = ev.target.checked;
+      save(s => { s.geo = { districts: [], streets: [], ...(s.geo ?? {}), on }; });
+    });
+  },
+  async geoDistrictDialog(d = {}) {
+    const data = await formDialog(d.id ? T("Район") : T("Новый район"), `<form class="ncm-form">
+      <label>${T("Название")}<input name="ru" value="${esc(d.ru ?? "")}" placeholder="${T("Старый порт")}"></label>
+      <label>${T("Опасность")}<select name="danger">${DANGER.map((l, i) => `<option value="${i}"${(d.danger ?? 2) === i ? " selected" : ""}>${T(l)}</option>`).join("")}</select></label>
+      <label>${T("Описание (видят игроки)")}<textarea name="desc" rows="3">${esc(d.desc ?? "")}</textarea></label></form>`);
+    if (!data || !String(data.ru ?? "").trim()) return null;
+    return { ru: String(data.ru).trim(), en: "", danger: Math.max(0, Math.min(5, Number(data.danger) || 0)), desc: String(data.desc ?? "") };
+  },
+  async geoStreetDialog(st = {}) {
+    const data = await formDialog(st.id ? T("Улица") : T("Новая улица"), `<form class="ncm-form">
+      <label>${T("Название")}<input name="ru" value="${esc(st.ru ?? "")}" placeholder="${T("Портовая ул.")}"></label>
+      <label class="ncm-check"><input type="checkbox" name="hw" ${st.hw ? "checked" : ""}> ${T("Трасса (красная подпись, не адрес)")}</label></form>`);
+    if (!data || !String(data.ru ?? "").trim()) return null;
+    return { ru: String(data.ru).trim(), en: "", hw: !!data.hw };
+  },
+  async geoClick(f, target) {
+    const dl = target.closest?.(".ncm-dist[data-dist]"), sl = target.closest?.(".ncm-street[data-street]");
+    if (dl) return this.geoEditDistrict(dl.dataset.dist);
+    if (sl) return this.geoEditStreet(sl.dataset.street);
+    if ((this.geoTool ?? "district") === "district") {
+      const d = await this.geoDistrictDialog(); if (!d) return;
+      return save(s => { s.geo.districts.push({ id: `cd${rid()}`, ...d, x: f.x, y: f.y }); });
+    }
+    if (!this.geoA) { this.geoA = [f.x, f.y]; this.renderHint(); return this.geoMark(); }
+    const a = this.geoA, b = [f.x, f.y], redo = this.geoRedo; this.geoA = null; this.geoRedo = null; this.geoMark(); this.renderHint();
+    if (redo) return save(s => { const st = s.geo.streets.find(x => x.id === redo); if (st) Object.assign(st, { a, b }); });
+    const st = await this.geoStreetDialog(); if (!st) return;
+    return save(s => { s.geo.streets.push({ id: `cs${rid()}`, ...st, a, b }); });
+  },
+  /** Метка начала улицы, пока ждём второй клик. */
+  geoMark() {
+    this.el.querySelector(".ncm-geoa")?.remove();
+    if (!this.geoA) return;
+    const m = document.createElement("div"); m.className = "ncm-geoa";
+    m.style.left = `${this.geoA[0] * 100}%`; m.style.top = `${this.geoA[1] * 100}%`;
+    this.el.querySelector(".ncm-markers").appendChild(m);
+  },
+  async geoEditDistrict(id) {
+    const cur = geo().districts.find(x => x.id === id); if (!cur) return;
+    const d = await this.geoDistrictDialog(cur); if (!d) return;
+    return save(s => { const x = s.geo.districts.find(q => q.id === id); if (x) Object.assign(x, d); });
+  },
+  async geoEditStreet(id) {
+    const cur = geo().streets.find(x => x.id === id); if (!cur) return;
+    const st = await this.geoStreetDialog(cur); if (!st) return;
+    return save(s => { const x = s.geo.streets.find(q => q.id === id); if (x) Object.assign(x, st); });
+  },
+  async geoCopy() {
+    const g = geo();
+    if (g.districts.length + g.streets.length) {
+      const ok = await Dialog.confirm({ title: T("Районы и улицы"), content: `<p>${T("Заменить свои районы и улицы встроенными Найт-Сити 2045?")}</p>` });
+      if (!ok) return;
+    }
+    const ds = BASE_DISTRICTS.map(d => ({ id: `cd${rid()}`, ru: d.ru, en: "", x: d.x, y: d.y, danger: d.id === "delbay" || d.id === "sanbay" ? 0 : d.danger, desc: d.desc ?? "" }));
+    const ss = BASE_STREETS.map(st => ({ id: `cs${rid()}`, ru: st.ru, en: "", a: [...st.a], b: [...st.b], hw: !!st.hw }));
+    return save(s => { s.geo = { on: true, districts: ds, streets: ss }; });
   },
 
   /* ------------------------------------------------ места: убранные, экспорт */
@@ -942,7 +1065,7 @@ const UI = {
         <h3>${T("Убранные места")} · ${removed.length}</h3>
         ${removed.length ? removed.map(p => `<div class="ncm-own"><div><b>${esc(p.name)}</b><small>${esc((CATS[p.cat] ?? CATS.custom).ru)}</small></div><button data-act="restore-poi" data-id="${p.id}" title="${T("Вернуть")}"><i class="fas fa-rotate-left"></i></button></div>`).join("") : `<p class="ncm-muted">${T("Ничего не убрано.")}</p>`}
         <h3>${T("Перенос между мирами")}</h3>
-        <p class="ncm-muted">${T("В файл попадают свои точки, правки мест, встречи, магазины, рынки и заказы.")}</p>
+        <p class="ncm-muted">${T("В файл попадают свои точки, правки мест, дороги, районы и улицы, встречи, магазины, рынки, заказы и контакты.")}</p>
         <div class="ncm-p-acts"><button data-act="export"><i class="fas fa-file-export"></i> ${T("Экспорт")}</button><button data-act="import"><i class="fas fa-file-import"></i> ${T("Импорт")}</button></div>
       </div>`;
   },
@@ -1033,11 +1156,13 @@ const UI = {
       if (ev.key !== "Enter") return;
       const q = this.query.toLowerCase();
       const p = allPois().find(x => `${x.name} ${x.en ?? ""}`.toLowerCase().includes(q));
-      const d = DISTRICTS.find(x => x.ru.toLowerCase().includes(q) || x.en.toLowerCase().includes(q));
+      const d = dists().find(x => x.ru.toLowerCase().includes(q) || x.en.toLowerCase().includes(q));
       if (p) this.select(p.id, true); else if (d) this.renderDistrict(d.id);
     });
     vp.addEventListener("wheel", (ev) => { ev.preventDefault(); const r = vp.getBoundingClientRect(); this.zoomAt(ev.deltaY < 0 ? 1.18 : 1 / 1.18, ev.clientX - r.left, ev.clientY - r.top); }, { passive: false });
     vp.addEventListener("pointerdown", (ev) => {
+      const gl = this.mode === "geo" && ev.button === 0 && isGM() && geoOn() && ev.target.closest(".ncm-dist[data-dist], .ncm-street[data-street]");
+      if (gl) { this.gdrag = { el: gl, dist: gl.dataset.dist, street: gl.dataset.street, x: ev.clientX, y: ev.clientY, f0: this.toFrac(ev), moved: false }; vp.setPointerCapture(ev.pointerId); return; }
       if (ev.button > 2 || ev.target.closest("button:not(.ncm-pin), .ncm-hint, .ncm-dist")) return;
       if (ev.button === 1) ev.preventDefault();
       const dragPin = this.mode === "arrange" && ev.button === 0 && isGM() && ev.target.closest(".ncm-pin[data-poi]");
@@ -1051,6 +1176,9 @@ const UI = {
     });
     vp.addEventListener("pointermove", (ev) => {
       if (this.mode === "route") this.rubber(ev);
+      if (this.gdrag) { const gd = this.gdrag; if (Math.abs(ev.clientX - gd.x) + Math.abs(ev.clientY - gd.y) > 3) gd.moved = true;
+        if (gd.moved) { const f = this.toFrac(ev); gd.f = f; const { w, h } = this.size(), r = this.world.getBoundingClientRect();
+          gd.el.style.translate = `${(f.x - gd.f0.x) * r.width / this.view.s}px ${(f.y - gd.f0.y) * r.height / this.view.s}px`; gd.el.classList.add("dragging"); } return; }
       if (this.pdrag) { const pd = this.pdrag; if (Math.abs(ev.clientX - pd.x) + Math.abs(ev.clientY - pd.y) > 3) pd.moved = true;
         if (pd.moved) { const f = this.toFrac(ev); pd.f = f; pd.el.style.left = `${f.x * 100}%`; pd.el.style.top = `${f.y * 100}%`; pd.el.classList.add("dragging"); } return; }
       if (this.stroke) { const f = this.toFrac(ev), l = this.stroke.p.at(-1); if (Math.hypot(f.x - l[0], f.y - l[1]) > 0.002) { this.stroke.p.push([+f.x.toFixed(5), +f.y.toFixed(5)]); this.drawStroke(); } return; }
@@ -1060,6 +1188,14 @@ const UI = {
       if (d.moved) { this.view.x = d.vx + dx; this.view.y = d.vy + dy; this.apply(); vp.classList.add("ncm-grab"); }
     });
     vp.addEventListener("pointerup", (ev) => {
+      if (this.gdrag) { const gd = this.gdrag; this.gdrag = null; gd.el.classList.remove("dragging");
+        if (!gd.moved || !gd.f) return gd.dist ? this.geoEditDistrict(gd.dist) : this.geoEditStreet(gd.street);
+        const dx = gd.f.x - gd.f0.x, dy = gd.f.y - gd.f0.y;
+        return save(s => {
+          if (gd.dist) { const d = s.geo.districts.find(q => q.id === gd.dist); if (d) { d.x += dx; d.y += dy; } }
+          else { const st = s.geo.streets.find(q => q.id === gd.street); if (st) { st.a = [st.a[0] + dx, st.a[1] + dy]; st.b = [st.b[0] + dx, st.b[1] + dy]; } }
+        });
+      }
       if (this.pdrag) { const pd = this.pdrag; this.pdrag = null; pd.el.classList.remove("dragging");
         if (!pd.moved || !pd.f) return this.select(pd.id);
         const { x, y } = pd.f, id = pd.id;
@@ -1069,7 +1205,7 @@ const UI = {
       if (this.stroke) { const st = this.stroke; this.stroke = null; return save(s => { s.roads = [...(s.roads ?? []), st]; }); }
       const d = this.drag; this.drag = null; vp.classList.remove("ncm-grab");
       if (!d || d.moved) return;
-      if (d.btn === 2) { if (this.mode === "route" && this.route.length) { this.route.pop(); this.recalc(); } return; }
+      if (d.btn === 2) { if (this.mode === "route" && this.route.length) { this.route.pop(); this.recalc(); } if (this.mode === "geo" && this.geoA) { this.geoA = null; this.geoRedo = null; this.geoMark(); this.renderHint(); } return; }
       if (d.btn === 0 && !d.target.closest("button:not(.ncm-pin)")) this.onMapClick(ev, d.target);
     });
     vp.addEventListener("contextmenu", (ev) => ev.preventDefault());
@@ -1156,6 +1292,7 @@ const UI = {
   },
   setMode(m) {
     this.mode = this.mode === m ? "browse" : m;
+    if (this.geoA) { this.geoA = null; this.geoRedo = null; this.geoMark(); }
     if (this.mode === "roads") loadGrid().then(() => this.renderRoads()); else this.renderRoads();
     if (this.mode === "route" && !this.route.length && this.sel) { const p = poiById(this.sel); if (p) this.route.push({ x: p.x, y: p.y, poi: p.id }); }
     this.renderHint(); this.renderPanel(); this.renderSvg();
@@ -1171,6 +1308,7 @@ const UI = {
     const pin = target.closest("[data-poi], [data-gig]");
     if (pin?.dataset.gig && this.mode !== "route") { /* обработано ниже */ }
     const f = this.toFrac(ev);
+    if (this.mode === "geo") { if (isGM() && geoOn()) return this.geoClick(f, target); return; }
     if (this.mode === "route") {
       const gq = pin?.dataset.gig ? state().quests.find(x => x.id === pin.dataset.gig) : null;
       const p = pin?.dataset.poi ? poiById(pin.dataset.poi) : null;
@@ -1259,6 +1397,16 @@ const UI = {
       case "places": return this.renderPlaces();
       case "mode-roads": return this.setMode("roads");
       case "mode-arrange": return this.setMode("arrange");
+      case "mode-geo": return this.setMode("geo");
+      case "geo-tool": this.geoTool = b.dataset.t; this.geoA = null; this.geoRedo = null; this.geoMark(); this.renderHint(); return this.renderPanel();
+      case "geo-copy": return this.geoCopy();
+      case "geo-clear": { const ok = await Dialog.confirm({ title: T("Районы и улицы"), content: `<p>${T("Удалить все свои районы и улицы?")}</p>` }); if (ok) return save(s => { s.geo = { ...s.geo, districts: [], streets: [] }; }); return; }
+      case "geo-focus": return this.focus(Number(b.dataset.x), Number(b.dataset.y), Math.max(this.view.s, 0.9));
+      case "geo-edit-d": return this.geoEditDistrict(id);
+      case "geo-edit-s": return this.geoEditStreet(id);
+      case "geo-rm-d": return save(s => { s.geo.districts = s.geo.districts.filter(q => q.id !== id); });
+      case "geo-rm-s": return save(s => { s.geo.streets = s.geo.streets.filter(q => q.id !== id); });
+      case "geo-redraw": this.geoTool = "street"; this.geoRedo = id; this.geoA = null; this.renderHint(); return ui.notifications.info(T("Кликни начало и конец улицы на карте."));
       case "brush": this.brush.t = b.dataset.t; return this.renderPanel();
       case "roads-undo": return save(s => { s.roads = (s.roads ?? []).slice(0, -1); });
       case "roads-clear": { const ok = await Dialog.confirm({ title: T("Дороги"), content: `<p>${T("Сбросить все свои правки дорог?")}</p>` }); if (ok) return save(s => { s.roads = []; }); return; }
@@ -1436,7 +1584,7 @@ async function spawnMooks(id, n) {
 }
 
 async function doEncounter(x, y, distId, { toGM = true } = {}) {
-  const dist = DISTRICTS.find(d => d.id === distId) ?? districtAt(x, y);
+  const dist = dists().find(d => d.id === distId) ?? districtAt(x, y);
   const threat = threatOf(dist, zoneAt(x, y));
   const st = state();
   const e = rollEncounter({ distId: dist?.id, threat, night: isNight(), custom: st.encounters ?? [], mode: st.encMode ?? "mix" });
@@ -1575,7 +1723,7 @@ const PRICEY = { exec: 1.3, westbrook: 1.2, marina: 1.1, glen: 1.05 };
 /** Случайные точки на настоящих улицах (не пустыри, не Зона Поражения), не ближе minD к занятым. */
 /** Без сетки улиц: точки вокруг центров районов. */
 function districtSpots(n, taken, minD, skip = NO_SHOPS) {
-  const ds = DISTRICTS.filter(d => !skip.has(d.id) && !["delbay", "sanbay"].includes(d.id)), out = [];
+  const ds = dists().filter(d => !skip.has(d.id) && !["delbay", "sanbay"].includes(d.id)), out = [];
   let tries = 0;
   while (out.length < n && tries++ < n * 400 && ds.length) {
     const d = ds[Math.floor(Math.random() * ds.length)];
@@ -1740,7 +1888,7 @@ async function doPurchase(actor, it) {
 
 /* ================================================================ экспорт и импорт мест */
 
-const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests", "roads", "contacts"];
+const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests", "roads", "contacts", "geo"];
 function exportData() {
   const s = state(), out = { module: MID, version: game.modules.get(MID)?.version, ...Object.fromEntries(EXPORT_KEYS.map(k => [k, s[k]])) };
   const dl = foundry.utils.saveDataToFile ?? globalThis.saveDataToFile;
@@ -1842,8 +1990,8 @@ function localizeData() {
   Object.values(CATALOG).forEach(c => tr(c));
   // места, районы, улицы: английские названия есть в данных
   for (const p of POIS) { p._ru ??= { name: p.name, desc: p.desc }; p.name = p.en || p.name; p.desc = T(p._ru.desc); p.en = ""; }
-  for (const d of DISTRICTS) { d._ru ??= { ru: d.ru, desc: d.desc }; d.ru = d.en || d.ru; d.desc = T(d._ru.desc); d.en = ""; }
-  for (const st of STREETS) { st._ru ??= st.ru; st.ru = st.en || st.ru; }
+  for (const d of BASE_DISTRICTS) { d._ru ??= { ru: d.ru, desc: d.desc }; d.ru = d.en || d.ru; d.desc = T(d._ru.desc); d.en = ""; }
+  for (const st of BASE_STREETS) { st._ru ??= st.ru; st.ru = st.en || st.ru; }
 }
 Hooks.once("setup", () => { if (freezeLang() !== "ru") localizeData(); });
 

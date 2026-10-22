@@ -550,3 +550,12 @@
 .ncm-form .ncm-who > span { flex-basis: 100%; font-weight: 700; }
 #ncm.ncm-arrange .ncm-pin[data-poi] { cursor: grab; outline: 1px dashed rgba(252,238,10,.7); outline-offset: 2px; }
 #ncm.ncm-arrange .ncm-pin[data-poi].dragging { cursor: grabbing; z-index: 50; outline: 2px solid #fcee0a; filter: drop-shadow(0 0 8px #fcee0a); }
+
+/* свои районы и улицы */
+#ncm.ncm-geomode .ncm-streets { pointer-events: none; }
+#ncm.ncm-geomode .ncm-street[data-street] { pointer-events: auto; cursor: move; outline: 1px dashed rgba(245,230,99,.55); outline-offset: 2px; opacity: 1; }
+#ncm.ncm-geomode .ncm-dist[data-dist] { cursor: move; outline: 1px dashed rgba(245,230,99,.55); outline-offset: 2px; }
+#ncm .ncm-dist.dragging, #ncm .ncm-street.dragging { opacity: .75; z-index: 5; }
+#ncm .ncm-geoa { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid #f5e663; background: rgba(245,230,99,.35); box-shadow: 0 0 10px #f5e663; transform: scale(var(--inv)); pointer-events: none; }
+#ncm.ncm-geomode .ncm-dist, #ncm.ncm-geoshow .ncm-dist { opacity: .9; }
+#ncm.ncm-geomode .ncm-street[data-street] { opacity: .95; }
