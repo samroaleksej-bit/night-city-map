@@ -354,7 +354,7 @@ function loadGrid() {
     for (const step of [() => loadImg(src, true), async () => { const r = await fetch(src); if (!r.ok) throw new Error(r.status); return loadImg(URL.createObjectURL(await r.blob()), false); }, () => loadImg(src, false)]) {
       try { if (gridFromImage(await step())) return true; } catch (e) { console.warn(`${MID} | road grid:`, e?.message ?? e); }
     }
-    ui.notifications?.warn(T("Карта: не удалось прочитать сетку улиц. Маршруты пойдут по прямой, магазины встанут без привязки к улицам."));
+    ui.notifications?.warn(T("Карта: не удалось прочитать сетку дорог. Маршруты пойдут по прямой, магазины встанут без привязки к дорогам."));
     return false;
   })();
   return GRID.ready;
@@ -717,7 +717,7 @@ const UI = {
   renderHint() {
     const h = this.el.querySelector(".ncm-hint");
     const msg = { route: T("Маршрут: кликайте по карте или точкам — каждый клик добавляет поворот. Тяните карту мышью, чтобы сдвинуть. Правый клик — убрать последнюю точку."),
-      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint() }[this.mode];
+      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), shop: T("Кликните по карте, где поставить магазин. Район и наценка возьмутся по месту."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint() }[this.mode];
     const st = state();
     const clr = this.mode === "party" && st.party ? `<button data-act="party-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>`
       : this.mode === "me" && st.players?.[game.user.id] ? `<button data-act="me-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>` : "";
@@ -1162,7 +1162,10 @@ const UI = {
     });
     vp.addEventListener("wheel", (ev) => { ev.preventDefault(); const r = vp.getBoundingClientRect(); this.zoomAt(ev.deltaY < 0 ? 1.18 : 1 / 1.18, ev.clientX - r.left, ev.clientY - r.top); }, { passive: false });
     vp.addEventListener("pointerdown", (ev) => {
-      const gl = this.mode === "geo" && ev.button === 0 && isGM() && geoOn() && ev.target.closest(".ncm-dist[data-dist], .ncm-street[data-street]");
+      // Подпись могут перекрывать пины/точки — ищем её под курсором во всём стеке элементов
+      const gl = this.mode === "geo" && ev.button === 0 && isGM() && geoOn() && !ev.target.closest(".ncm-hint, .ncm-panel, button:not(.ncm-pin)")
+        && (ev.target.closest(".ncm-dist[data-dist], .ncm-street[data-street]")
+          ?? document.elementsFromPoint(ev.clientX, ev.clientY).find(e => e.matches?.(".ncm-dist[data-dist], .ncm-street[data-street]")));
       if (gl) { this.gdrag = { el: gl, dist: gl.dataset.dist, street: gl.dataset.street, x: ev.clientX, y: ev.clientY, f0: this.toFrac(ev), moved: false }; vp.setPointerCapture(ev.pointerId); return; }
       if (ev.button > 2 || ev.target.closest("button:not(.ncm-pin), .ncm-hint, .ncm-dist")) return;
       if (ev.button === 1) ev.preventDefault();
@@ -1326,6 +1329,11 @@ const UI = {
     }
     if (this.mode === "party") { await act("party", f); this.setMode("browse"); return; }
     if (this.mode === "me") { await act("me", f); this.setMode("browse"); return; }
+    if (this.mode === "shop") {
+      this.setMode("browse");
+      const id = await addShopAt(f);
+      return id && this.select(id);
+    }
     if (this.mode === "pin") {
       const data = await pinDialog(T("Новая точка"), { hidden: true });
       if (data?.name) { const id = `c${rid()}`; await save(s => { s.pins.push({ id, ...f, ...data }); }); this.setMode("browse"); return this.select(id); }
@@ -1789,13 +1797,48 @@ async function placeMarkets({ n = 6, lo = 2, hi = 7, replace = true, hidden = fa
 }
 
 async function genShopsDialog() {
-  const data = await formDialog(T("Случайные магазины"), `<form class="ncm-form">
-    <p>${T("Магазины встанут на улицы по всему городу. Ассортимент — по Корке Cyberpunk RED, цены — категории книги с наценкой района.")}</p>
+  const form = `<form class="ncm-form">
+    <p>${T("Магазины встанут вдоль дорог (слой «Дороги») по всему городу. Ассортимент — по Корке Cyberpunk RED, цены — категории книги с наценкой района.")}</p>
     <label>${T("Сколько магазинов")}<input name="count" type="number" min="1" max="120" value="30"></label>
     <label class="ncm-check"><input type="checkbox" name="replace" checked> ${T("Заменить уже расставленные")}</label>
-    <label class="ncm-check"><input type="checkbox" name="hidden"> ${T("Скрыть от игроков (откроете по одному)")}</label></form>`);
-  if (!data) return;
+    <label class="ncm-check"><input type="checkbox" name="hidden"> ${T("Скрыть от игроков (откроете по одному)")}</label>
+    <p class="ncm-muted">${T("Один магазин в нужном месте — кнопка «Поставить вручную». Перенести готовый магазин в другой район — режим «Расставить».")}</p></form>`;
+  const res = await new Promise(resolve => new Dialog({
+    title: T("Случайные магазины"), content: form,
+    buttons: {
+      ok: { icon: '<i class="fas fa-dice"></i>', label: T("Расставить случайно"), callback: (html) => {
+        const f = (html[0] ?? html).querySelector("form"), fd = new FormDataExtended(f).object;
+        for (const cb of f.querySelectorAll("input[type=checkbox]")) fd[cb.name] = cb.checked;
+        resolve({ gen: fd });
+      } },
+      one: { icon: '<i class="fas fa-location-crosshairs"></i>', label: T("Поставить вручную"), callback: () => resolve({ one: true }) },
+      cancel: { label: T("Отмена"), callback: () => resolve(null) }
+    },
+    default: "ok", close: () => resolve(null)
+  }, { classes: ["ncm-dialog"], width: 480 }).render(true));
+  if (!res) return;
+  if (res.one) { if (UI.mode !== "shop") UI.setMode("shop"); return; }
+  const data = res.gen;
   return placeShops({ n: Number(data.count) || 30, replace: !!data.replace, hidden: !!data.hidden });
+}
+
+/** Один магазин вручную: тип и название выбирает мастер, наценка — по району точки. */
+async function addShopAt(f) {
+  const d = districtAt(f.x, f.y);
+  const base = (d && PRICEY[d.id]) ?? (zoneAt(f.x, f.y) === "combat" ? 1.15 : 1);
+  const data = await formDialog(T("Новый магазин"), `<form class="ncm-form">
+    <div class="ncm-row"><label>${T("Тип")}<select name="type">${Object.entries(SHOP_TYPES).map(([k, v]) => `<option value="${k}">${T(v.ru)}</option>`).join("")}</select></label>
+    <label>${T("Цены, % к книге")}<input name="pct" type="number" step="5" value="${Math.round(base * 100)}"></label></div>
+    <label>${T("Название")}<input name="name" placeholder="${T("пусто — случайное по типу")}"></label>
+    <label class="ncm-check"><input type="checkbox" name="hidden"> ${T("Скрыть от игроков")}</label>
+    <p class="ncm-muted">${T("Район:")} ${esc(d ? (isRu() ? d.ru : d.en || d.ru) : "—")}</p></form>`, T("Поставить"));
+  if (!data) return null;
+  const t = SHOP_TYPES[data.type] ?? Object.values(SHOP_TYPES)[0];
+  const name = String(data.name ?? "").trim() || t.names[Math.floor(Math.random() * t.names.length)];
+  const id = `s${rid()}`;
+  await save(s => { s.shops = [...(s.shops ?? []), { id, type: data.type, name, x: f.x, y: f.y, seed: Math.floor(Math.random() * 1e9), markup: (Number(data.pct) || 100) / 100, hidden: !!data.hidden }]; });
+  if (!UI.filter.has("shop")) UI.filter.add("shop");
+  return id;
 }
 async function placeShops({ n = 30, replace = true, hidden = false, quiet = false } = {}) {
   await loadGrid();
@@ -1955,6 +1998,44 @@ async function openPlaceScene(id, show = false) {
   else await sc.view();
 }
 
+/** Перерисовка окна (звонок, «Агент») не должна стирать то, что человек сейчас печатает:
+ *  запоминаем текст, курсор и фокус полей и возвращаем их после innerHTML. */
+function keepDraft(root, ...sels) {
+  const saved = [];
+  for (const sel of sels) {
+    const el = root?.querySelector(sel); if (!el) continue;
+    const focused = document.activeElement === el;
+    if (!el.value && !focused) continue;
+    saved.push({ sel, value: el.value, focused, a: el.selectionStart, b: el.selectionEnd });
+  }
+  return {
+    restore() {
+      let refocused = false;
+      for (const d of saved) {
+        const el = root?.querySelector(d.sel); if (!el) continue;
+        el.value = d.value;
+        if (d.focused) { el.focus({ preventScroll: true }); try { el.setSelectionRange(d.a, d.b); } catch (e) { /* не текстовое поле */ } refocused = true; }
+      }
+      return refocused;
+    }
+  };
+}
+
+/** Выбор картинки через FilePicker Foundry (v12 и v13). Карта на весь экран не должна его перекрывать. */
+function openFilePicker(inp) {
+  if (!inp) return;
+  try {
+    const FP = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker?.implementation ?? globalThis.FilePicker;
+    if (!FP) throw new Error("FilePicker not found");
+    const fp = new FP({ type: "image", current: inp.value || "", callback: (path) => { inp.value = path; inp.dispatchEvent(new Event("change", { bubbles: true })); } });
+    const r = fp.render(true);
+    Promise.resolve(r).then(() => { fp.bringToTop?.(); const el = fp.element?.[0] ?? fp.element; if (el?.style) el.style.zIndex = String(Math.max(Number(el.style.zIndex) || 0, 10000)); }).catch(() => {});
+  } catch (e) {
+    console.error(MID, "FilePicker", e);
+    ui.notifications.warn(T("Не удалось открыть выбор файла — впиши путь к картинке вручную."));
+  }
+}
+
 function formDialog(title, content, okLabel = T("Сохранить")) {
   return new Promise(resolve => {
     new Dialog({
@@ -1971,11 +2052,12 @@ function formDialog(title, content, okLabel = T("Сохранить")) {
       default: "ok", close: () => resolve(null),
       render: (html) => {
         const root = html?.[0] ?? html;
-        root?.querySelectorAll?.("[data-fp]").forEach(btn => btn.addEventListener("click", () => {
-          const inp = root.querySelector(`[name="${btn.dataset.fp}"]`);
-          const FP = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker;
-          if (FP) new FP({ type: "image", current: inp.value, callback: (path) => { inp.value = path; } }).render(true);
-        }));
+        // Делегирование: кнопка файла работает, даже если Foundry перерисует окно
+        root?.addEventListener?.("click", (ev) => {
+          const btn = ev.target.closest?.("[data-fp]"); if (!btn) return;
+          ev.preventDefault(); ev.stopPropagation();
+          openFilePicker(root.querySelector(`[name="${btn.dataset.fp}"]`));
+        });
         root?.querySelector?.("[data-actor]")?.addEventListener("change", (ev) => {
           const a = game.actors.get(ev.target.value); if (!a) return;
           root.querySelector('[name="from"]').value = a.name;
@@ -2207,6 +2289,7 @@ const Agent = {
     if (!this.el) return;
     const { time } = fmtClock();
     const body = this.tab === "msg" ? this.renderMsgs() : this.tab === "jobs" ? this.renderJobs() : this.tab === "contacts" ? this.renderContacts() : this.renderMe();
+    const draft = keepDraft(this.el, "[data-ag-text]", "[data-ag-from]");
     this.el.innerHTML = `<div class="ag-phone">
       <div class="ag-top"><span>${time}</span><span class="ag-net">NCNET ▮▮▮▯ 5G</span><button data-ag="mini" title="${T("Свернуть")}">▁</button><button data-ag="close" title="${T("Закрыть")}">✕</button></div>
       <div class="ag-head"><b>AGENT</b><small>${esc(game.user.character?.name ?? game.user.name)}</small></div>
@@ -2218,6 +2301,7 @@ const Agent = {
         <button data-ag="tab" data-t="me" class="${this.tab === "me" ? "on" : ""}"><i class="fas fa-location-dot"></i>${T("Я")}</button>
         <button data-ag="map"><i class="fas fa-map"></i>${T("Карта")}</button>
       </nav></div>`;
+    draft.restore();
     const list = this.el.querySelector(".ag-msgs"); if (list) list.scrollTop = list.scrollHeight;
   },
   renderMsgs() {
@@ -2270,11 +2354,11 @@ const Agent = {
   },
   async send() {
     const ta = this.el?.querySelector("[data-ag-text]"); const text = ta?.value.trim(); if (!text) return;
+    ta.value = ""; // очищаем до отправки: ответная перерисовка не должна вернуть отправленный текст
     if (isGM()) {
       const to = this.el.querySelector("[data-ag-to]")?.value ?? "all"; this.from = this.el.querySelector("[data-ag-from]")?.value || T("Фиксер");
       await act("msg", { to, from: this.from, text });
     } else await act("msg", { to: "gm", text, from: game.user.character?.name ?? game.user.name });
-    ta.value = "";
   },
   async onClick(ev) {
     const b = ev.target.closest("[data-ag]"); if (!b) return;
@@ -2488,6 +2572,7 @@ const Call = {
     const status = c.phase === "ring" ? T("ВХОДЯЩИЙ ВЫЗОВ") : c.phase === "out" ? T("ВЫЗОВ…") : c.phase === "live" ? T("НА СВЯЗИ") : c.noAnswer ? T("АБОНЕНТ НЕ ОТВЕЧАЕТ") : c.busyEnd ? T("АБОНЕНТ ЗАНЯТ") : T("СВЯЗЬ ПРЕРВАНА");
     const who = c.gm ? (c.incoming ? name(c.caller) : c.to === "all" ? T("Все игроки") : name(c.to)) : c.from;
     const lines = c.lines.slice(-4);
+    const draft = keepDraft(this.el, "[data-cl-text]");
     this.el.className = `on ph-${c.phase}${c.gm ? " gm" : ""}`;
     this.el.innerHTML = `<div class="cl-frame">
       <div class="cl-head"><span class="cl-k"><i class="fas fa-phone-volume"></i> ${status}</span>${c.phase === "live" ? `<span class="cl-dur">${this.dur()}</span>` : ""}</div>
@@ -2511,7 +2596,7 @@ const Call = {
     const tw = this.el.querySelector("[data-type]");
     if (tw) { const full = tw.textContent; tw.textContent = ""; let i = 0; const step = () => { if (!tw.isConnected) return; tw.textContent = full.slice(0, ++i); if (i < full.length) setTimeout(step, 22); }; step(); }
     const box = this.el.querySelector(".cl-lines"); if (box) box.scrollTop = box.scrollHeight;
-    if (c.phase === "live") this.el.querySelector("[data-cl-text]")?.focus({ preventScroll: true });
+    if (!draft.restore() && c.phase === "live") this.el.querySelector("[data-cl-text]")?.focus({ preventScroll: true });
   },
   send() { const ta = this.el?.querySelector("[data-cl-text]"); if (!ta?.value.trim()) return; const v = ta.value; ta.value = ""; this.say(v); },
   onClick(ev) {

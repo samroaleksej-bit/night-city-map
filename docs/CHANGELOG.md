@@ -1,3 +1,19 @@
+## 0.21.0 — fixes from the Discord + manual shops
+
+- **District and street labels can be dragged again** in the **Districts** mode. Pins and dots no longer sit on top of the labels there (they fade out while you edit), so a label under a location pin can be grabbed.
+- **Image picker** (the file button next to “Image” for places, contacts and holo-calls) opens reliably and stays above the full-screen map. If Foundry can't open it, you get a message instead of silence.
+- **Typing is no longer wiped** in a holo-call or in the Agent chat when the other side sends a message while you are still writing. The text, cursor and focus are kept.
+- **Place a shop manually**: **Shops** → **Place manually**, then click the map. Pick the type, name and price %; the district is taken from the spot. To move an existing shop to another district, use **Arrange**.
+- Wording: random shops are placed **along roads** (the Roads layer), not on the street labels.
+
+## 0.21.0 — исправления из Discord + магазины вручную
+
+- **Подписи районов и улиц снова перетаскиваются** в режиме **«Районы»**. Пины и точки мест больше не перекрывают подписи (на время правки они бледнеют), так что подпись под значком места можно схватить.
+- **Выбор картинки** (кнопка файла у «Картинки» мест, контактов и голо-вызова) открывается надёжно и поверх карты на весь экран. Если Foundry не может его открыть — будет сообщение, а не тишина.
+- **Текст больше не стирается** в голо-вызове и в чате «Агента», если собеседник прислал сообщение, пока ты печатаешь. Текст, курсор и фокус сохраняются.
+- **Магазин вручную**: **«Магазины»** → **«Поставить вручную»**, клик по карте. Тип, название и % цены выбираешь сам, район берётся по месту. Перенести готовый магазин в другой район — режим **«Расставить»**.
+- Формулировка: случайные магазины встают **вдоль дорог** (слой «Дороги»), а не по подписям улиц.
+
 ## 0.20.0 — place scenes
 
 - Any place on the map (built-in or your own) can be linked to a scene: **Edit** → **Place scene (battle map)**. The list shows world scenes and scenes from every Scene compendium (map packs).

@@ -220,7 +220,7 @@ export default {
  "Ночной рынок ·": "Night Market ·",
  "Ночных рынков:": "Night Markets:",
  "Случайные магазины": "Random shops",
- "Магазины встанут на улицы по всему городу. Ассортимент — по Корке Cyberpunk RED, цены — категории книги с наценкой района.": "Shops will be placed on streets across the city. Stock follows the Cyberpunk RED core rules, prices use the book's price categories with a district markup.",
+ "Магазины встанут вдоль дорог (слой «Дороги») по всему городу. Ассортимент — по Корке Cyberpunk RED, цены — категории книги с наценкой района.": "Shops will be placed along roads (the Roads layer) across the city. Stock follows the Cyberpunk RED core rules, prices use the book's price categories with a district markup.",
  "Сколько магазинов": "How many shops",
  "Скрыть от игроков (откроете по одному)": "Hide from players (reveal one by one)",
  "Расставлено магазинов:": "Shops placed:",
@@ -1154,7 +1154,7 @@ export default {
  "Своя карта? Нарисуй сетку целиком (белое — улицы, серое — суша, чёрное — вода) и укажи файл в настройках модуля.": "Your own map? Draw a full grid (white streets, gray land, black water) and set the file in the module settings.",
  "Рисуй дороги левой кнопкой мыши, двигай карту правой.": "Paint roads with the left mouse button, move the map with the right.",
  "Сбросить все свои правки дорог?": "Reset all your road edits?",
- "Карта: не удалось прочитать сетку улиц. Маршруты пойдут по прямой, магазины встанут без привязки к улицам.": "Map: couldn't read the street grid. Routes will go in straight lines, shops will be placed without snapping to streets.",
+ "Карта: не удалось прочитать сетку дорог. Маршруты пойдут по прямой, магазины встанут без привязки к дорогам.": "Map: couldn't read the road grid. Routes will go in straight lines, shops will be placed without snapping to roads.",
  "Сетка улиц не загрузилась (см. консоль F12). Мазки сохраняются, но показать их не на чем.": "The street grid didn't load (see the F12 console). Strokes are saved but there's nothing to draw them on.",
  "Удалить все сообщения в этом списке": "Delete all messages in this list",
  "Очистить переписку": "Clear conversation",
@@ -1258,5 +1258,14 @@ export default {
  "Сцена добавлена в мир:": "Scene added to the world:",
  "Игроки перенесены:": "Players moved to:",
  "Открыть сцену": "Open scene",
- "Перенести игроков": "Move players"
+ "Перенести игроков": "Move players",
+ "Не удалось открыть выбор файла — впиши путь к картинке вручную.": "Couldn't open the file picker — type the image path manually.",
+ "Кликните по карте, где поставить магазин. Район и наценка возьмутся по месту.": "Click the map where the shop should go. District and markup are taken from that spot.",
+ "Один магазин в нужном месте — кнопка «Поставить вручную». Перенести готовый магазин в другой район — режим «Расставить».": "One shop in a specific spot — “Place manually”. To move an existing shop to another district, use Arrange mode.",
+ "Расставить случайно": "Place random",
+ "Поставить вручную": "Place manually",
+ "Новый магазин": "New shop",
+ "пусто — случайное по типу": "empty — random name for the type",
+ "Район:": "District:",
+ "Поставить": "Place"
 };
