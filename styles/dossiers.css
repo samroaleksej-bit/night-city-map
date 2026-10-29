@@ -3,3 +3,4 @@
 .ncd-panel { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
 .ncd-row { display: grid; grid-template-columns: 1fr 170px auto auto; gap: 6px; align-items: center; }
 .ncd-row button { white-space: nowrap; }
+.ncd-grp { margin: 10px 0 2px; padding-bottom: 3px; border-bottom: 1px solid #ff5c50; font-size: 15px; }

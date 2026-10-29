@@ -10,7 +10,7 @@ class DossierWindow extends Application {
     return foundry.utils.mergeObject(super.defaultOptions, { width: Math.min(1180, window.innerWidth - 80), height: Math.min(820, window.innerHeight - 60), resizable: true, classes: ["ncd-window"], popOut: true });
   }
   async _renderInner() {
-    const src = `modules/${MID}/dossiers/${this.d.id}/index.html${this.folder ? "#" + this.folder : ""}`;
+    const src = `modules/${MID}/dossiers/${this.d.id}/index.html${this.d.id.startsWith("term-") ? "?id=ncd-" + this.d.id : ""}${this.folder ? "#" + this.folder : ""}`;
     return $(`<div class="ncd-frame"><iframe src="${src}" title="${esc(this.d.name)}" allow="fullscreen"></iframe></div>`);
   }
 }
@@ -34,7 +34,8 @@ async function show(id, folder = "") {
 async function panel() {
   if (!game.user.isGM) return;
   const list = await load();
-  const rows = list.map(d => `<div class="ncd-row" data-id="${d.id}"><b>${esc(d.name)}</b>
+  let grp = null;
+  const rows = list.map(d => `${(d.group ?? "Досье") !== grp ? `<h3 class="ncd-grp">${esc(grp = d.group ?? "Досье")}</h3>` : ""}<div class="ncd-row" data-id="${d.id}"><b>${esc(d.name)}</b>
     <select>${(d.folders ?? [{ id: "", name: "Все папки" }]).map(f => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("")}</select>
     <button type="button" data-a="open"><i class="fas fa-folder-open"></i> Открыть</button>
     <button type="button" data-a="show"><i class="fas fa-eye"></i> Показать игрокам</button></div>`).join("") || "<p>Досье нет.</p>";
@@ -53,7 +54,7 @@ Hooks.once("ready", () => {
   game.modules.get(MID).api = api; globalThis.NCDossiers = api;
 });
 Hooks.on("getSceneControlButtons", (controls) => {
-  const tool = { name: "nc-dossiers", title: "Досье Danger Gal", icon: "fas fa-folder-tree", button: true, visible: game.user.isGM, onClick: () => panel(), onChange: () => panel() };
+  const tool = { name: "nc-dossiers", title: "Досье Danger Gal и раздатки", icon: "fas fa-folder-tree", button: true, visible: game.user.isGM, onClick: () => panel(), onChange: () => panel() };
   if (Array.isArray(controls)) controls.find(c => c.name === "token")?.tools.push(tool);
   else if (controls?.tokens?.tools) controls.tokens.tools["nc-dossiers"] = { ...tool, order: 98 };
 });

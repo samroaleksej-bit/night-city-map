@@ -1,0 +1,14 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Схема</title><style>
+html,body{margin:0;height:100%;background:#0c0a0e;overflow:hidden;font:600 14px monospace;color:#ff5c50}
+#v{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+#v img{max-width:96%;max-height:92%;box-shadow:0 20px 60px #000;transition:transform .3s;cursor:zoom-in}
+#v img.z{transform:scale(1.8);cursor:zoom-out}
+#tabs{position:absolute;left:0;right:0;bottom:10px;display:flex;justify-content:center;gap:8px;z-index:2}
+#tabs b{padding:6px 16px;border:1px solid #ff5c50;cursor:pointer;letter-spacing:.12em}#tabs b.a{background:#ff5c50;color:#0c0a0e}
+</style></head><body><div id="v"><img id="im"></div><div id="tabs"><b data-s="shema.webp">СХЕМА ОТ РУКИ</b><b data-s="plan.webp">ПЛАН ЗДАНИЯ</b></div>
+<script>
+const im=document.getElementById('im'),tabs=[...document.querySelectorAll('#tabs b')];
+function go(s){im.src=s;im.classList.remove('z');tabs.forEach(t=>t.classList.toggle('a',t.dataset.s===s))}
+tabs.forEach(t=>t.onclick=()=>go(t.dataset.s));im.onclick=e=>{const r=im.getBoundingClientRect();im.style.transformOrigin=`${(e.clientX-r.left)/r.width*100}% ${(e.clientY-r.top)/r.height*100}%`;im.classList.toggle('z')};
+go(location.hash==='#plan'?'plan.webp':'shema.webp');
+</script></body></html>
