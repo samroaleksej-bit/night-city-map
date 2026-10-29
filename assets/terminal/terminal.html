@@ -159,9 +159,9 @@ const S={ctx:null,out:null,on:true,last:{},hum:null,
   alarm(){for(let i=0;i<3;i++){this.tone(880,.18,{type:'square',vol:.07,at:i*.42});this.tone(660,.18,{type:'square',vol:.07,at:i*.42+.2})}},
   img(){if(this.lim('img',40))this.noise(.05,{vol:.04,f:7000,q:3})},
   humOn(){if(!this.ok()||this.hum)return;const c=this.ctx,o=c.createOscillator(),g=c.createGain(),s=c.createBufferSource(),b=c.createBiquadFilter(),g2=c.createGain();
-    o.type='sawtooth';o.frequency.value=50;g.gain.value=.015;o.connect(g);g.connect(this.out);o.
-    s.buffer=this.noiseBuf;s.loop=true;b.type='lowpass';b.frequency.value=1200;g2.gain.value=.025;s.connect(b);b.connect(g2);g2.connect(this.out);s.this.hum=[o,s]},
-  humOff(){if(this.hum){this.hum.forEach(n=>{try{n.stop()}catch(e){}});this.hum=null}},
+    o.type='sawtooth';o.frequency.value=50;g.gain.value=.015;o.connect(g);g.connect(this.out);o.start();
+    s.buffer=this.noiseBuf;s.loop=true;b.type='lowpass';b.frequency.value=1200;g2.gain.value=.025;s.connect(b);b.connect(g2);g2.connect(this.out);s.start();this.hum=[o,s];try{const R=(P||window);R.__ncAudio=R.__ncAudio||new Set();this.hum.forEach(n=>R.__ncAudio.add(n))}catch(e){}},
+  humOff(){if(this.hum){this.hum.forEach(n=>{try{n.stop();(P||window).__ncAudio?.delete(n)}catch(e){}});this.hum=null}},
 };
 function btnS(){const b=$('#snd');if(b)b.textContent=S.on?'♪ ON':'♪ OFF';if(b)b.classList.toggle('off',!S.on)}
 
@@ -217,6 +217,7 @@ async function openTab(t){cur=t;const my=++token;S.humOff();
   const its=[...box.children];for(let i=0;i<its.length;i++){if(my!==token)return;its[i].classList.add('on');S.row();await sleep(90)}
   if(LST.length)show(0);else{$('#ph').innerHTML='';$('#pb').innerHTML=''}
 }
+addEventListener('pagehide',()=>S.humOff());
 addEventListener('keydown',e=>{if(/^[rRкК]$/.test(e.key))location.reload();if(/^[mMьЬ]$/.test(e.key))S.toggle();if(!D)return;
   if(e.target&&e.target.tagName==='INPUT')return;
   const n=(D[cur]||[]).length;if(cur==='net'){if(e.key==='ArrowLeft'||e.key==='ArrowRight'){}else return}else if(!n)return;if(e.key==='ArrowDown'){S.open();show((sel+1)%n)}if(e.key==='ArrowUp'){S.open();show((sel+n-1)%n)}

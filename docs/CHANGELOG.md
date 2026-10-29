@@ -1,3 +1,13 @@
+## 0.25.1 — fixes
+
+- A terminal's sound stops when its window is closed (the camera hum kept playing in Foundry's audio).
+- The camera feed file in terminals opens again.
+
+## 0.25.1 — исправления
+
+- Звук терминала гаснет вместе с окном (гул камеры продолжал играть в звуке Foundry).
+- Файл с камерой в терминалах снова открывается.
+
 ## 0.25.0 — handouts from a folder
 
 - **Terminals → From folder**: pick a folder in your Foundry data. Every `.json` terminal in it is imported (re-running updates the ones already imported), every `.html` page becomes a terminal that opens as is (animated handouts, your own pages), and every image goes into a **Handouts · <folder>** journal, one page per image, ready for Foundry's **Show to players**.

@@ -39,6 +39,10 @@ class TermApp extends Application {
     return foundry.utils.mergeObject(super.defaultOptions, { width: 1200, height: 790, resizable: true, popOut: true, classes: ["ncm-term-app"] });
   }
   get id() { return `ncm-term-${this.t.id}`; }
+  async close(options) {
+    try { (globalThis.__ncAudio ?? []).forEach(n => { try { n.stop(); } catch (e) { /* */ } }); globalThis.__ncAudio?.clear(); } catch (e) { /* */ }
+    return super.close(options);
+  }
   get title() { return this.t.name || T("Терминал"); }
   async _renderInner() {
     const src = this.t.src ? encodeURI(decodeURI(this.t.src)) + `?v=${Date.now()}` : `${ENGINE}?id=${encodeURIComponent(this.t.id)}&lang=${lang()}&v=${Date.now()}`;
