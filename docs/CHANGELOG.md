@@ -1,3 +1,11 @@
+## 0.26.2 — fix
+
+- Night lights no longer go out and light up again every time you open a place or click something on the map.
+
+## 0.26.2 — исправление
+
+- Ночные огни больше не гаснут и не зажигаются заново каждый раз, когда открываешь место или кликаешь по карте.
+
 ## 0.26.1 — the lights actually glow
 
 - Lights now glow: a soft bloom around every light, and the city itself is lit from below. Streets and blocks under the lights turn warm and amber, while dark districts, the Hot Zone and the bay stay in darkness.

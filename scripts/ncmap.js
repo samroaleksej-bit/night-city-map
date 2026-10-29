@@ -356,7 +356,7 @@ const Lights = {
   canvases() { const el = UI.el; return el ? [...el.querySelectorAll(".ncm-lights")] : []; },
   /** Мир включил/выключил ночь — зажечь или погасить. */
   async sync(force) {
-    const [cv] = this.canvases(); if (!cv) return;
+    const cv = UI.el?.querySelector(".ncm-lights.ncm-main"); if (!cv) return;
     let want = isNight(); try { want = want && game.settings.get(MID, "nightLights"); } catch (e) { /* */ }
     if (!want) { if (this.on || force) { this.on = false; cancelAnimationFrame(this.anim); UI.el.classList.remove("ncm-lit", "ncm-litmap"); } return; }
     if (this.on && !force && cv.dataset.drawn === "1") return;
