@@ -1,3 +1,11 @@
+## 0.25.0 — handouts from a folder
+
+- **Terminals → From folder**: pick a folder in your Foundry data. Every `.json` terminal in it is imported (re-running updates the ones already imported), every `.html` page becomes a terminal that opens as is (animated handouts, your own pages), and every image goes into a **Handouts · <folder>** journal, one page per image, ready for Foundry's **Show to players**.
+
+## 0.25.0 — раздатки из папки
+
+- **«Терминалы» → «Из папки»**: выбираешь папку в данных Foundry. Каждый терминал `.json` из неё импортируется (повторный запуск обновляет уже добавленные), каждая страница `.html` становится терминалом и открывается как есть (анимированные раздатки, свои страницы), а все картинки попадают в журнал **«Раздатки · <папка>»**, по странице на картинку, — их можно показать игрокам штатной кнопкой Foundry.
+
 ## 0.24.0 — netrunning terminals by the Cyberpunk RED rules
 
 - **NET tab** in a terminal whose .json has an `arch` (NET Architecture): floors with a Password, File, Control Node or Black ICE, a DV, and the rules text right on the card. **Jack in**, **Go down**, **Pathfinder** (reveals the map), **Jack out** (warns about an unsafe jack out with active Black ICE).

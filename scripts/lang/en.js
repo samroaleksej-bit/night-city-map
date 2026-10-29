@@ -1316,5 +1316,13 @@ export default {
  "Удалить терминал": "Delete terminal",
  "Не похоже на терминал:": "Not a terminal file:",
  "Импортировано терминалов:": "Terminals imported:",
- "Терминалы — компьютеры в стиле 2077": "Terminals — 2077-style computers"
+ "Терминалы — компьютеры в стиле 2077": "Terminals — 2077-style computers",
+ "Все .json и .html из папки — в терминалы, картинки — в журнал с раздатками": "All .json and .html in a folder become terminals, images go into a handouts journal",
+ "Из папки": "From folder",
+ "Путь к папке в данных Foundry:": "Folder path in Foundry data:",
+ "Не открыть папку:": "Can't open folder:",
+ "Раздатки": "Handouts",
+ "терминалов новых": "new terminals",
+ "обновлено": "updated",
+ "картинок в журнал": "images added to the journal"
 };

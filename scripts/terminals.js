@@ -41,7 +41,8 @@ class TermApp extends Application {
   get id() { return `ncm-term-${this.t.id}`; }
   get title() { return this.t.name || T("Терминал"); }
   async _renderInner() {
-    return $(`<div class="ncm-term-wrap"><iframe src="${ENGINE}?id=${encodeURIComponent(this.t.id)}&lang=${lang()}&v=${Date.now()}" allow="autoplay"></iframe></div>`);
+    const src = this.t.src ? encodeURI(decodeURI(this.t.src)) + `?v=${Date.now()}` : `${ENGINE}?id=${encodeURIComponent(this.t.id)}&lang=${lang()}&v=${Date.now()}`;
+    return $(`<div class="ncm-term-wrap"><iframe src="${src}" allow="autoplay"></iframe></div>`);
   }
 }
 
@@ -71,13 +72,14 @@ const Manager = {
         ${isGM() ? `<button type="button" data-a="show" title="${T("Показать всем игрокам (откроется у всех)")}"><i class="fas fa-tower-broadcast"></i></button>
         <button type="button" data-a="toggle" title="${t.shared ? T("Убрать из списка игроков") : T("Дать игрокам в список, не открывая")}"><i class="fas ${t.shared ? "fa-user-slash" : "fa-user-plus"}"></i></button>
         <button type="button" data-a="rename" title="${T("Переименовать")}"><i class="fas fa-pen"></i></button>
-        <button type="button" data-a="export" title="${T("Скачать .json")}"><i class="fas fa-download"></i></button>
+        ${t.src ? "" : `<button type="button" data-a="export" title="${T("Скачать .json")}"><i class="fas fa-download"></i></button>`}
         <button type="button" data-a="del" title="${T("Удалить")}"><i class="fas fa-trash"></i></button>` : ""}
       </span></li>`).join("");
     return `<div class="ncm-term-mgr">
       ${isGM() ? `<p class="hint">${T("Терминал — это файл .json с файлами и сообщениями. Импорт хранит его в мире, загружать на сервер ничего не надо.")}</p>` : ""}
       <ul>${rows || `<li class="empty">${isGM() ? T("Пока пусто — импортируй .json терминала.") : T("Мастер пока ничего не открыл.")}</li>`}</ul>
       ${isGM() ? `<div class="bar"><button type="button" data-a="import"><i class="fas fa-file-import"></i> ${T("Импорт .json")}</button>
+        <button type="button" data-a="folder" title="${T("Все .json и .html из папки — в терминалы, картинки — в журнал с раздатками")}"><i class="fas fa-folder-open"></i> ${T("Из папки")}</button>
         <button type="button" data-a="closeall"><i class="fas fa-power-off"></i> ${T("Закрыть у всех")}</button></div>
         <input type="file" accept=".json,application/json" multiple hidden>` : ""}
     </div>`;
@@ -98,6 +100,7 @@ const Manager = {
       const a = b.dataset.a, id = b.closest("[data-id]")?.dataset.id;
       if (a === "open") return openTerm(id);
       if (a === "import") return file?.click();
+      if (a === "folder") return pickFolder();
       if (a === "closeall") { game.socket.emit(SOCKET, { action: "term-close" }); closeTerms(); return; }
       if (!isGM()) return;
       const list = terms(), t = list.find(x => x.id === id);
@@ -135,6 +138,60 @@ const Manager = {
   },
 };
 
+/* ---------------------------------------------------------------- импорт папки с раздатками */
+
+const IMG_EXT = /\.(png|jpe?g|webp|gif|avif|svg)$/i;
+const FP = () => foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker?.implementation ?? globalThis.FilePicker;
+const nameOf = (p) => decodeURIComponent(p.split("/").pop()).replace(/\.[^.]+$/, "").replace(/^\d+[_ .-]*/, "").replace(/_/g, " ");
+
+function pickFolder() {
+  try {
+    const fp = new (FP())({ type: "folder", current: "assets", callback: (path) => importFolder(path) });
+    Promise.resolve(fp.render(true)).then(() => { const el = fp.element?.[0] ?? fp.element; if (el?.style) el.style.zIndex = "10000"; });
+  } catch (e) {
+    console.error(MID, e);
+    Dialog.prompt({ title: T("Из папки"), content: `<p>${T("Путь к папке в данных Foundry:")}</p><input type="text" value="assets/" style="width:100%">`,
+      callback: (h) => importFolder((h instanceof HTMLElement ? h : h[0]).querySelector("input").value.trim()), rejectClose: false });
+  }
+}
+
+/** .json → терминал (данные в мире), .html → терминал-страница (открывается как есть), картинки → журнал «Раздатки». */
+async function importFolder(path) {
+  if (!path) return;
+  path = String(path).replace(/\/+$/, "");
+  let res;
+  try { res = await FP().browse("data", path); } catch (e) { console.error(MID, e); return ui.notifications.error(`${T("Не открыть папку:")} ${path}`); }
+  const files = (res?.files ?? []).slice().sort();
+  const list = terms(); let nT = 0, nU = 0;
+  for (const f of files) {
+    try {
+      if (/\.json$/i.test(f)) {
+        const d = await (await fetch(encodeURI(decodeURI(f)) + `?v=${Date.now()}`)).json();
+        if (!d || !(Array.isArray(d.files) || Array.isArray(d.msgs))) continue;
+        const old = list.find(t => t.from === f);
+        if (old) { old.data = d; nU++; } else { list.push({ id: rid(), name: d.title || nameOf(f), data: d, shared: false, from: f }); nT++; }
+      } else if (/\.html?$/i.test(f)) {
+        if (list.some(t => t.src === f)) { nU++; continue; }
+        list.push({ id: rid(), name: nameOf(f), src: f, shared: false, from: f }); nT++;
+      }
+    } catch (e) { console.error(MID, f, e); }
+  }
+  if (nT || nU) await saveTerms(list);
+  // картинки — в один журнал на папку, страница на картинку; уже добавленные не дублируются
+  const imgs = files.filter(f => IMG_EXT.test(f));
+  let nI = 0, je = null;
+  if (imgs.length) {
+    je = game.journal.find(j => j.getFlag?.(MID, "folder") === path);
+    const folderName = nameOf(path.split("/").pop());
+    if (!je) je = await JournalEntry.create({ name: `${T("Раздатки")} · ${folderName}`, flags: { [MID]: { folder: path } } });
+    const have = new Set(je.pages.map(p => p.src));
+    const pages = imgs.filter(f => !have.has(f)).map((f, i) => ({ name: nameOf(f), type: "image", src: f, sort: (je.pages.size + i + 1) * 100000 }));
+    if (pages.length) { await je.createEmbeddedDocuments("JournalEntryPage", pages); nI = pages.length; }
+  }
+  ui.notifications.info(`${T("Из папки")}: ${T("терминалов новых")} ${nT}, ${T("обновлено")} ${nU}, ${T("картинок в журнал")} ${nI}.`);
+  if (je && nI) je.sheet?.render(true);
+}
+
 /* ---------------------------------------------------------------- сокет, API, кнопки */
 
 Hooks.once("ready", () => {
@@ -156,6 +213,7 @@ Hooks.once("ready", () => {
     termSetState: (id, st) => netSet(id, st),
     terminals: () => Manager.toggle(),
     openTerminal: (id) => openTerm(id),
+    importFolder: (path) => importFolder(path),
     lang: () => lang(),
   });
   globalThis.NightCityMap = api;
