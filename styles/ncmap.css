@@ -562,3 +562,6 @@
 #ncm .ncm-geoa { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid #f5e663; background: rgba(245,230,99,.35); box-shadow: 0 0 10px #f5e663; transform: scale(var(--inv)); pointer-events: none; }
 #ncm.ncm-geomode .ncm-dist, #ncm.ncm-geoshow .ncm-dist { opacity: .9; }
 #ncm.ncm-geomode .ncm-street[data-street] { opacity: .95; }
+#ncm .ncm-stock td.ncm-gmi { white-space: nowrap; width: 1%; }
+#ncm .ncm-stock td.ncm-gmi button { padding: 2px 6px; margin-left: 2px; font-size: 11px; line-height: 1.2; opacity: .7; }
+#ncm .ncm-stock td.ncm-gmi button:hover { opacity: 1; }

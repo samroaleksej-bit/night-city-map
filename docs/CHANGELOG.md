@@ -1,3 +1,17 @@
+## 0.22.0 — reset to defaults, shop stock editing
+
+- **Reset to defaults**: **Places** → **Reset…**. Pick what to restore: place edits, your pins, custom districts and street labels, painted roads, the map image and road grid in settings, and optionally shops, gigs and Agent data. Map data lives in the **world settings**, so reinstalling the module never reset it. This is the way back to a clean map. Export first if you might want your setup again.
+- **Street labels only in Districts mode**: a checkbox in **Districts**. Use it when your map image (for example an NC Atlas map) already has street names printed on it, so they don't show twice.
+- **Edit a shop's stock** (GM): every item has a **custom price** and **remove** button, **Add item** puts anything into the shop (category price or exact eb), **Reset stock edits** brings back the generated stock. **New stock** rerolls and clears edits.
+- **Buying looks further for the item**: world items first, then system, world and module compendiums. Items from other compendiums can now land on the sheet.
+
+## 0.22.0 — сброс к стандартному, правка товара в магазинах
+
+- **Сброс к стандартному**: **«Места»** → **«Сбросить…»**. Отмечаешь, что вернуть: правки мест, свои точки, свои районы и подписи улиц, нарисованные дороги, картинку карты и сетку дорог в настройках, а при желании ещё магазины, заказы и данные «Агента». Данные карты хранятся в **настройках мира**, поэтому переустановка модуля их никогда не сбрасывала. Вернуть чистую карту можно только так. Перед сбросом лучше сделать «Экспорт».
+- **Подписи улиц только в режиме «Районы»**: галочка в **«Районах»**. Нужна, если на твоей картинке карты (например, NC Atlas) названия улиц уже нарисованы, чтобы они не дублировались.
+- **Правка товара в магазине** (мастер): у каждого товара кнопки **«Своя цена»** и **«Убрать»**, **«Добавить товар»** кладёт что угодно (по категории цены или точная сумма), **«Сбросить правки товара»** возвращает сгенерированный ассортимент. **«Новый товар»** перебрасывает и снимает правки.
+- **Покупка ищет предмет шире**: сначала предметы мира, потом компендиумы системы, мира и модулей. Предметы из других компендиумов теперь тоже попадают в лист.
+
 ## 0.21.0 — fixes from the Discord + manual shops
 
 - **District and street labels can be dragged again** in the **Districts** mode. Pins and dots no longer sit on top of the labels there (they fade out while you edit), so a label under a location pin can be grabbed.

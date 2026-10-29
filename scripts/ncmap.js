@@ -248,7 +248,7 @@ let GEO = null;
 function geo() {
   if (GEO) return GEO;
   let g = null; try { g = game.settings.get(MID, "state")?.geo; } catch (e) { /* ещё не зарегистрировано */ }
-  return GEO = { on: !!g?.on, show: !!g?.show, districts: clone(g?.districts ?? []), streets: clone(g?.streets ?? []) };
+  return GEO = { on: !!g?.on, show: !!g?.show, hideStreets: !!g?.hideStreets, districts: clone(g?.districts ?? []), streets: clone(g?.streets ?? []) };
 }
 const geoOn = () => geo().on;
 const dists = () => geoOn() ? geo().districts : BASE_DISTRICTS;
@@ -652,7 +652,9 @@ const UI = {
   /* ------------------------------------------------ слои */
   renderStreets() {
     const { w, h } = this.size();
-    this.el.querySelector(".ncm-streets").innerHTML = streets().map(s => {
+    // Подписи улиц можно прятать вне режима «Районы» — если они уже нарисованы на самой картинке карты
+    const hide = geo().hideStreets && this.mode !== "geo";
+    this.el.querySelector(".ncm-streets").innerHTML = hide ? "" : streets().map(s => {
       const ax = s.a[0] * w, ay = s.a[1] * h, bx = s.b[0] * w, by = s.b[1] * h;
       let ang = Math.atan2(by - ay, bx - ax) * 180 / Math.PI;
       if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
@@ -778,10 +780,12 @@ const UI = {
   },
   renderShop(panel, sh) {
     const t = SHOP_TYPES[sh.type], d = districtAt(sh.x, sh.y), st = streetNear(sh.x, sh.y), z = zoneAt(sh.x, sh.y);
-    const stock = stockFor(sh.type, sh.seed), q = (this.shopQuery ?? "").toLowerCase();
-    const mk = sh.markup ?? 1;
+    const stock = shopStock(sh), q = (this.shopQuery ?? "").toLowerCase();
+    const mk = sh.markup ?? 1, gm = isGM();
     const byCat = {};
-    stock.forEach((it, i) => { it.i = i; if (!q || `${it.n} ${it.note ?? ""}`.toLowerCase().includes(q)) (byCat[it.cat] ??= []).push(it); });
+    stock.forEach((it) => { if (!q || `${it.n} ${it.note ?? ""}`.toLowerCase().includes(q)) (byCat[it.cat] ??= []).push(it); });
+    const catOf = (c) => CATALOG[c] ?? { ru: T("Особый товар"), color: "#f5e663", icon: "fa-star" };
+    const edited = !!(sh.edit && ((sh.edit.rm ?? []).length || (sh.edit.add ?? []).length || Object.keys(sh.edit.px ?? {}).length));
     const color = CATALOG[t.cats[0]].color;
     panel.classList.add("on");
     panel.innerHTML = `
@@ -796,9 +800,10 @@ const UI = {
       </div>
       <div class="ncm-p-body">
         <label class="ncm-shopsearch"><i class="fas fa-magnifying-glass"></i><input type="search" data-shopq placeholder="${T("Найти товар…")}" value="${esc(this.shopQuery ?? "")}"></label>
-        ${Object.entries(byCat).map(([c, items]) => `<h3 style="color:${CATALOG[c].color}"><i class="fas ${CATALOG[c].icon}"></i> ${CATALOG[c].ru}</h3>
+        ${Object.entries(byCat).map(([c, items]) => `<h3 style="color:${catOf(c).color}"><i class="fas ${catOf(c).icon}"></i> ${catOf(c).ru}</h3>
           <table class="ncm-stock">${items.map(it => `<tr><td><b>${esc(it.n)}</b>${it.note ? `<small>${esc(it.note)}</small>` : ""}</td>
-            <td class="ncm-tier">${TIERS[it.tier].ru}</td><td class="ncm-eb">${priceOf(it, mk)} eb</td>${buyCell(sh.id, it)}</tr>`).join("")}</table>`).join("") || `<p class="ncm-muted">${T("Ничего не найдено.")}</p>`}
+            <td class="ncm-tier">${TIERS[it.tier]?.ru ?? ""}</td><td class="ncm-eb">${itemPrice(it, mk)} eb</td>${buyCell(sh.id, it)}${gm ? `<td class="ncm-gmi"><button data-act="stock-px" data-id="${sh.id}" data-i="${it.i}" title="${T("Своя цена")}"><i class="fas fa-tag"></i></button><button data-act="stock-rm" data-id="${sh.id}" data-i="${it.i}" title="${T("Убрать из продажи")}"><i class="fas fa-xmark"></i></button></td>` : ""}</tr>`).join("")}</table>`).join("") || `<p class="ncm-muted">${T("Ничего не найдено.")}</p>`}
+        ${gm ? `<div class="ncm-p-acts"><button data-act="stock-add" data-id="${sh.id}"><i class="fas fa-plus"></i> ${T("Добавить товар")}</button>${edited ? `<button data-act="stock-reset" data-id="${sh.id}"><i class="fas fa-rotate-left"></i> ${T("Сбросить правки товара")}</button>` : ""}</div>` : ""}
         ${encBlock(sh.x, sh.y, d?.id)}
         <div class="ncm-p-acts">
           <button data-act="route-to" data-id="${sh.id}"><i class="fas fa-flag-checkered"></i> ${T("Маршрут сюда")}</button>
@@ -965,6 +970,7 @@ const UI = {
         <p class="ncm-muted">${T("Для своей карты: свои районы, опасность и подписи улиц. По ним работают адреса мест, встречи, магазины и заказы.")}</p>
         ${custom && !g.on ? `<div class="ncm-warn"><i class="fas fa-circle-info"></i> ${T("Стоит своя картинка карты, а районы и улицы пока встроенные — от Найт-Сити 2045.")}</div>` : ""}
         <label class="ncm-check"><input type="checkbox" data-geo-on ${g.on ? "checked" : ""}> ${T("Свои районы и улицы вместо встроенных")}</label>
+        <label class="ncm-check"><input type="checkbox" data-geo-hidest ${g.hideStreets ? "checked" : ""}> ${T("Подписи улиц только в режиме «Районы» (если названия уже есть на картинке карты)")}</label>
         ${g.on ? `<label class="ncm-check"><input type="checkbox" data-geo-show ${g.show ? "checked" : ""}> ${T("Всегда показывать названия районов (если их нет на самой картинке)")}</label>` : ""}
         ${g.on ? `
         <div class="ncm-seg">${[["district", T("Район")], ["street", T("Улица")]].map(([k, l]) => `<button data-act="geo-tool" data-t="${k}" class="${t === k ? "on" : ""}">${l}</button>`).join("")}</div>
@@ -984,6 +990,7 @@ const UI = {
         <p class="ncm-muted">${T("Опасность «Боевая зона» и «Зона Поражения» делает территорию вокруг названия района соответствующей зоной. «Вода» — подпись без района.")}</p>` : ""}
         <p class="ncm-muted">${T("Районы и улицы попадают в экспорт карты («Места» → Экспорт).")}</p>
       </div>`;
+    panel.querySelector("[data-geo-hidest]")?.addEventListener("change", (ev) => { const v = ev.target.checked; save(s => { s.geo = { on: false, districts: [], streets: [], ...(s.geo ?? {}), hideStreets: v }; }); });
     panel.querySelector("[data-geo-show]")?.addEventListener("change", (ev) => { const show = ev.target.checked; save(s => { s.geo.show = show; }); });
     panel.querySelector("[data-geo-on]")?.addEventListener("change", (ev) => {
       const on = ev.target.checked;
@@ -1068,6 +1075,9 @@ const UI = {
         <h3>${T("Перенос между мирами")}</h3>
         <p class="ncm-muted">${T("В файл попадают свои точки, правки мест, дороги, районы и улицы, встречи, магазины, рынки, заказы и контакты.")}</p>
         <div class="ncm-p-acts"><button data-act="export"><i class="fas fa-file-export"></i> ${T("Экспорт")}</button><button data-act="import"><i class="fas fa-file-import"></i> ${T("Импорт")}</button></div>
+        <h3>${T("Сброс к стандартному")}</h3>
+        <p class="ncm-muted">${T("Всё, что ты меняешь на карте, хранится в настройках мира, а не в модуле. Поэтому переустановка модуля ничего не сбрасывает. Вернуть стандартные места, районы, улицы, дороги и картинку карты можно здесь.")}</p>
+        <div class="ncm-p-acts"><button class="danger" data-act="reset-all"><i class="fas fa-rotate-left"></i> ${T("Сбросить…")}</button></div>
       </div>`;
   },
 
@@ -1299,7 +1309,7 @@ const UI = {
     if (this.geoA) { this.geoA = null; this.geoRedo = null; this.geoMark(); }
     if (this.mode === "roads") loadGrid().then(() => this.renderRoads()); else this.renderRoads();
     if (this.mode === "route" && !this.route.length && this.sel) { const p = poiById(this.sel); if (p) this.route.push({ x: p.x, y: p.y, poi: p.id }); }
-    this.renderHint(); this.renderPanel(); this.renderSvg();
+    this.renderHint(); this.renderPanel(); this.renderSvg(); this.renderStreets();
   },
   select(id, center = false) {
     if (this.sel !== id) { this.shopQuery = ""; this.lastEncDist = null; }
@@ -1423,6 +1433,7 @@ const UI = {
       case "places-all": return save(s => { for (const p of POIS) { s.poi[p.id] = { ...(s.poi[p.id] ?? {}) }; if (b.dataset.on === "1") delete s.poi[p.id].removed; else s.poi[p.id].removed = true; } }).then(() => this.renderPlaces());
       case "export": return exportData();
       case "import": return importData().then(() => this.renderPlaces());
+      case "reset-all": return resetDialog().then(() => this.renderPlaces?.());
       case "buy": return buyItem({ shopId: b.dataset.shop, i: Number(b.dataset.i) });
       case "lock-pin": return save(s => { const p = s.pins.find(x => x.id === id); if (p) p.locked = !p.locked; else if (s.poi[id] || POIS.some(x => x.id === id)) s.poi[id] = { ...(s.poi[id] ?? {}), locked: !s.poi[id]?.locked }; });
       case "del-pin": {
@@ -1519,7 +1530,31 @@ const UI = {
         if (!data) return;
         return save(s => { const x = s.markets.find(y => y.id === id); Object.assign(x, { name: data.name, fixer: data.fixer, rep: Math.max(0, Math.min(10, Number(data.rep) || 0)), cats: [...new Set([data.c1, data.c2])], notes: data.notes, markup: (Number(data.pct) || 100) / 100 }); });
       }
-      case "shop-reroll": return save(s => { const sh = s.shops.find(x => x.id === id); if (sh) sh.seed = Math.floor(Math.random() * 1e9); });
+      case "shop-reroll": return save(s => { const sh = s.shops.find(x => x.id === id); if (sh) { sh.seed = Math.floor(Math.random() * 1e9); delete sh.edit; } });
+      case "stock-rm": { const i = Number(b.dataset.i); return save(s => { const sh = s.shops.find(x => x.id === id); if (!sh) return; sh.edit ??= {}; if (i >= 1000) sh.edit.add = (sh.edit.add ?? []).filter((_, k) => k !== i - 1000); else sh.edit.rm = [...new Set([...(sh.edit.rm ?? []), i])]; }); }
+      case "stock-reset": return save(s => { const sh = s.shops.find(x => x.id === id); if (sh) delete sh.edit; });
+      case "stock-px": {
+        const i = Number(b.dataset.i), sh = state().shops.find(x => x.id === id); if (!sh) return;
+        const it = shopStock(sh).find(x => x.i === i); if (!it) return;
+        const data = await formDialog(it.n, `<form class="ncm-form"><label>${T("Цена, eb (пусто — по категории и наценке)")}<input name="eb" type="number" min="0" step="5" value="${it.eb ?? ""}"></label></form>`);
+        if (!data) return;
+        const v = String(data.eb ?? "").trim();
+        return save(s => { const x = s.shops.find(y => y.id === id); if (!x) return; x.edit ??= {}; x.edit.px ??= {};
+          if (i >= 1000) { const a = x.edit.add?.[i - 1000]; if (a) { if (v === "") delete a.eb; else a.eb = Math.max(0, Number(v) || 0); } }
+          else if (v === "") delete x.edit.px[i]; else x.edit.px[i] = Math.max(0, Number(v) || 0); });
+      }
+      case "stock-add": {
+        const data = await formDialog(T("Добавить товар"), `<form class="ncm-form">
+          <label>${T("Название")}<input name="n" placeholder="${T("Например: Militech M-76E Omaha")}"></label>
+          <div class="ncm-row"><label>${T("Категория цены")}<select name="tier">${Object.entries(TIERS).map(([k, v]) => `<option value="${k}"${k === "costly" ? " selected" : ""}>${v.ru} · ${v.eb} eb</option>`).join("")}</select></label>
+          <label>${T("Или точная цена, eb")}<input name="eb" type="number" min="0" step="5"></label></div>
+          <label>${T("Заметка (видят игроки)")}<input name="note"></label>
+          <p class="ncm-muted">${T("При покупке предмет ищется по названию в компендиумах системы, мира и модулей.")}</p></form>`, T("Добавить"));
+        if (!data || !String(data.n ?? "").trim()) return;
+        const item = { n: String(data.n).trim(), tier: data.tier in TIERS ? data.tier : "costly", note: String(data.note ?? "") };
+        if (String(data.eb ?? "").trim() !== "") item.eb = Math.max(0, Number(data.eb) || 0);
+        return save(s => { const sh = s.shops.find(x => x.id === id); if (!sh) return; sh.edit ??= {}; sh.edit.add = [...(sh.edit.add ?? []), item]; });
+      }
       case "shop-del": this.sel = null; return save(s => { s.shops = s.shops.filter(x => x.id !== id); });
       case "shop-edit": {
         const sh = state().shops.find(x => x.id === id);
@@ -1867,6 +1902,16 @@ async function placeShops({ n = 30, replace = true, hidden = false, quiet = fals
 /* ================================================================ покупки в магазинах и на Ночных рынках */
 
 const priceOf = (it, mk = 1) => Math.round(TIERS[it.tier].eb * mk / 5) * 5 || TIERS[it.tier].eb;
+/** Цена с учётом ручной правки мастера (eb), иначе — категория книги с наценкой. */
+const itemPrice = (it, mk = 1) => Number.isFinite(it.eb) ? it.eb : priceOf(it, mk);
+/** Ассортимент магазина: случайный по seed + правки мастера (убранное, своя цена, добавленные товары).
+ *  i — стабильный номер: у товаров из генератора — их место в списке, у добавленных — 1000+. */
+function shopStock(sh) {
+  const e = sh.edit ?? {}, rm = new Set(e.rm ?? []), px = e.px ?? {};
+  const base = stockFor(sh.type, sh.seed).map((it, i) => ({ ...it, i, ...(Number.isFinite(px[i]) ? { eb: px[i] } : {}) })).filter(it => !rm.has(it.i));
+  const add = (e.add ?? []).map((a, k) => ({ cat: "custom", n: a.n, en: a.n, tier: a.tier ?? "costly", note: a.note ?? "", i: 1000 + k, ...(Number.isFinite(a.eb) ? { eb: a.eb } : {}) }));
+  return [...base, ...add];
+}
 const buyMode = () => { try { return game.settings.get(MID, "shopBuy"); } catch (e) { return "gm"; } };
 function buyCell(shopId, it) {
   if (isGM() || buyMode() === "off" || !game.user.character) return "";
@@ -1875,10 +1920,10 @@ function buyCell(shopId, it) {
 /** Товар по магазину и номеру в ассортименте (ассортимент детерминирован по seed — одинаков у всех). */
 function stockItem(shopId, i) {
   const s = state(), sh = s.shops.find(x => x.id === shopId), m = s.markets.find(x => x.id === shopId);
-  const list = sh ? stockFor(sh.type, sh.seed) : m ? marketStock(m.cats ?? [], m.seed) : [];
-  const it = list[i]; if (!it) return null;
+  const list = sh ? shopStock(sh) : m ? marketStock(m.cats ?? [], m.seed).map((it, k) => ({ ...it, i: k })) : [];
+  const it = list.find(x => x.i === i); if (!it) return null;
   const place = sh ?? m;
-  return { ...it, price: priceOf(it, place.markup ?? 1), shop: place.name, market: !!m };
+  return { ...it, price: itemPrice(it, place.markup ?? 1), shop: place.name, market: !!m };
 }
 const wealthOf = (a) => Number(a?.system?.wealth?.value);
 async function buyItem({ shopId, i }) {
@@ -1907,12 +1952,17 @@ async function findSystemItem(name) {
   const norm = (s) => String(s ?? "").toLowerCase().replace(/\(.*?\)|×\s*\d+/g, "").replace(/[^a-z0-9]+/g, " ").trim();
   if (!ITEM_INDEX) {
     ITEM_INDEX = new Map();
-    for (const pack of game.packs ?? []) {
-      if (pack.documentName !== "Item" || pack.metadata?.packageType !== "system") continue;
+    // Сначала компендиумы системы, потом мира, потом модулей: при совпадении имён берётся системный предмет
+    const order = { system: 0, world: 1, module: 2 };
+    const packs = [...(game.packs ?? [])].filter(p => p.documentName === "Item").sort((a, b) => (order[a.metadata?.packageType] ?? 3) - (order[b.metadata?.packageType] ?? 3));
+    for (const pack of packs) {
       try { for (const e of await pack.getIndex()) { const k = norm(e.name); if (k && !ITEM_INDEX.has(k)) ITEM_INDEX.set(k, `${pack.collection}.${e._id}`); } } catch (e) { /* пак не открылся */ }
     }
   }
   const tries = [name, String(name).split(" / ")[0], String(name).split(",")[0]].map(norm);
+  // Предмет мира с тем же именем (мастер мог завести свой) — в приоритете
+  const own = (game.items ?? []).find?.(i => tries.includes(norm(i.name)));
+  if (own) { const o = own.toObject(); delete o._id; return o; }
   for (const k of tries) {
     const ref = ITEM_INDEX.get(k); if (!ref) continue;
     const [pk, id] = [ref.slice(0, ref.lastIndexOf(".")), ref.slice(ref.lastIndexOf(".") + 1)];
@@ -2019,6 +2069,41 @@ function keepDraft(root, ...sels) {
       return refocused;
     }
   };
+}
+
+/** Сброс карты к стандартному. Данные карты — настройка мира, переустановка модуля их не трогает. */
+async function resetDialog() {
+  if (!isGM()) return;
+  const parts = [
+    ["poi", T("Правки встроенных мест и убранные места"), true],
+    ["pins", T("Свои точки"), true],
+    ["geo", T("Свои районы и подписи улиц"), true],
+    ["roads", T("Нарисованные правки дорог"), true],
+    ["images", T("Картинка карты и сетка дорог в настройках модуля"), true],
+    ["shops", T("Магазины и Ночные рынки"), false],
+    ["quests", T("Заказы и свои встречи"), false],
+    ["agent", T("Контакты и сообщения «Агента»"), false]
+  ];
+  const data = await formDialog(T("Сбросить карту к стандартному"), `<form class="ncm-form">
+    <p>${T("Отметь, что вернуть к стандарту. Перед сбросом лучше сделать «Экспорт» — его потом можно импортировать обратно.")}</p>
+    ${parts.map(([k, l, on]) => `<label class="ncm-check"><input type="checkbox" name="${k}" ${on ? "checked" : ""}> ${l}</label>`).join("")}</form>`, T("Сбросить"));
+  if (!data || !parts.some(([k]) => data[k])) return;
+  await save(s => {
+    if (data.poi) s.poi = {};
+    if (data.pins) s.pins = [];
+    if (data.geo) s.geo = { on: false, districts: [], streets: [] };
+    if (data.roads) s.roads = [];
+    if (data.shops) { s.shops = []; s.markets = []; }
+    if (data.quests) { s.quests = []; s.encounters = []; s.encMode = "mix"; }
+    if (data.agent) { s.contacts = []; s.messages = []; }
+  });
+  let reload = false;
+  if (data.images) {
+    const img = game.settings.settings.get(`${MID}.image`)?.default;
+    if (img && game.settings.get(MID, "image") !== img) await game.settings.set(MID, "image", img);
+    if (game.settings.get(MID, "roadsImage")) { await game.settings.set(MID, "roadsImage", ""); reload = true; }
+  }
+  ui.notifications.info(T("Карта сброшена к стандартному.") + (reload ? " " + T("Сетка дорог вернётся после перезагрузки (F5).") : ""));
 }
 
 /** Выбор картинки через FilePicker Foundry (v12 и v13). Карта на весь экран не должна его перекрывать. */

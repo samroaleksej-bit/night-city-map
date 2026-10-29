@@ -89,7 +89,8 @@ The built-in map image is **2079 × 2025 px** (about 1.03 : 1). Places, district
 - **Map width, km** (settings, default 14): the real width of the image, used for distances and travel time.
 - **Road grid image** (settings): the grid routes follow, **693 × 675 px** for the built-in map (a third of the map size). White = street, gray = land, black = water. Same proportions as your map; any resolution.
 - Small road fixes can be painted right on the map with the **Roads** button.
-- **Shops**: random shops along the roads, or **Place manually** to put one exactly where you want it.
+- **Shops**: random shops along the roads, or **Place manually** to put one exactly where you want it. The GM can edit any shop's stock: custom prices, remove items, add your own.
+- **Reset to defaults**: Places → Reset… Map data is stored in the world, so reinstalling the module does not reset it — use this instead.
 - **Place scenes**: link any place to a battle-map scene (Edit → Place scene); the GM opens it or moves the players there from the place panel.
 - **Districts** button: your own district names (with danger) and street labels for a custom map, or start from the built-in ones and move/rename them. Addresses, encounters, shops and gigs follow them.
 - Moving your setup between worlds: **Places → Export / Import** carries points, place edits, roads, districts and streets, encounters, shops, markets, gigs and contacts.
