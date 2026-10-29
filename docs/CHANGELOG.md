@@ -1,3 +1,11 @@
+## 0.26.1 — the lights actually glow
+
+- Lights now glow: a soft bloom around every light, and the city itself is lit from below. Streets and blocks under the lights turn warm and amber, while dark districts, the Hot Zone and the bay stay in darkness.
+
+## 0.26.1 — огни по-настоящему светятся
+
+- Огни теперь светятся: вокруг каждого мягкий ореол, а сам город подсвечивается снизу. Улицы и кварталы под огнями становятся тёплыми, янтарными, а тёмные районы, Зона Поражения и залив остаются во тьме.
+
 ## 0.26.0 — the city lights up at night
 
 - **Night lights**: when night falls on the map (21:00–06:00 or the GM's night switch), the city lights up in a wave, district by district: street lamps along the roads, windows and neon (rich districts brighter and colder, the outskirts sparse), fires in the Combat Zones and the Hot Zone, lights of ships along the shore. Some lights flicker, the city slowly breathes. At dawn the lights fade out.

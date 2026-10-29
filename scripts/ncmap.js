@@ -358,21 +358,30 @@ const Lights = {
   async sync(force) {
     const [cv] = this.canvases(); if (!cv) return;
     let want = isNight(); try { want = want && game.settings.get(MID, "nightLights"); } catch (e) { /* */ }
-    if (!want) { if (this.on || force) { this.on = false; cancelAnimationFrame(this.anim); UI.el.classList.remove("ncm-lit"); } return; }
+    if (!want) { if (this.on || force) { this.on = false; cancelAnimationFrame(this.anim); UI.el.classList.remove("ncm-lit", "ncm-litmap"); } return; }
     if (this.on && !force && cv.dataset.drawn === "1") return;
     this.on = true;
     await loadGrid(); if (!GRID.cell || !this.on) return;
     this.draw();
   },
   draw() {
-    const cvs = this.canvases(), [cv, fl] = cvs; if (!cv) return;
+    const cvs = this.canvases(), [bl, cv, fl] = cvs; if (!cv) return;
     const pts = this.build(); if (!pts) return;
     const W = 1600, H = Math.round(W * aspect);
     for (const c of cvs) { c.width = W; c.height = H; c.getContext("2d").clearRect(0, 0, W, H); }
     const COL = { lamp: "#ffae4a", lampw: "#ffe2a8", white: "#e6f4ff", gold: "#ffd27a", cyan: "#5ef6ff", pink: "#ff4fd2", warm: "#ffc070", fire: "#ff6a1a", red: "#ff2a3a" };
     this.sprites ??= Object.fromEntries(Object.entries(COL).flatMap(([k, c]) => [[k + "1", this.sprite(c, 4)], [k + "2", this.sprite(c, 9)]]));
-    const g = cv.getContext("2d"), gf = fl.getContext("2d"); g.globalCompositeOperation = gf.globalCompositeOperation = "lighter";
-    UI.el.classList.add("ncm-lit"); cv.dataset.drawn = "1";
+    const g = cv.getContext("2d"), gf = fl.getContext("2d"), gb = bl.getContext("2d");
+    g.globalCompositeOperation = gf.globalCompositeOperation = gb.globalCompositeOperation = "lighter";
+    UI.el.classList.add("ncm-lit"); UI.el.classList.remove("ncm-litmap"); cv.dataset.drawn = "1";
+    // карта света: мягкие пятна под огнями — по ней «подсвечивается» сама картинка города
+    const LW = 800, LH = Math.round(LW * aspect), lm = document.createElement("canvas"); lm.width = LW; lm.height = LH;
+    const gl = lm.getContext("2d"); gl.globalCompositeOperation = "lighter";
+    const blob = (() => { const c = document.createElement("canvas"); c.width = c.height = 28; const x = c.getContext("2d"), gr = x.createRadialGradient(14, 14, 0, 14, 14, 14);
+      gr.addColorStop(0, "rgba(255,255,255,.2)"); gr.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = gr; x.fillRect(0, 0, 28, 28); return c; })();
+    for (const p of pts) gl.drawImage(blob, p.x * LW - 14, p.y * LH - 14);
+    const lit = UI.el.querySelector(".ncm-img-lit");
+    if (lit) { const url = `url(${lm.toDataURL("image/png")})`; lit.style.webkitMaskImage = lit.style.maskImage = url; }
     const total = pts.length, dur = 2600, t0 = performance.now(); let i = 0;
     cancelAnimationFrame(this.anim);
     const step = (now) => {
@@ -381,7 +390,9 @@ const Lights = {
       for (; i < upto; i++) {
         const p = pts[i], sp = this.sprites[p.col + (p.sz > 1.5 ? "2" : "1")], x = p.x * W, y = p.y * H;
         (p.flick ? gf : g).drawImage(sp, x - sp.width / 2, y - sp.height / 2);
+        if (p.sz > 1.5 || p.col !== "lamp" || (i & 1)) gb.drawImage(sp, x - sp.width / 2, y - sp.height / 2);
       }
+      if (i > total * .35) UI.el?.classList.add("ncm-litmap");
       if (i < total) this.anim = requestAnimationFrame(step);
     };
     this.anim = requestAnimationFrame(step);
@@ -645,7 +656,9 @@ const UI = {
         <div class="ncm-world">
           <img class="ncm-img" src="${esc(mapImage())}" alt="" draggable="false">
           <div class="ncm-nightfx" aria-hidden="true"></div>
-          <canvas class="ncm-lights" aria-hidden="true"></canvas>
+          <img class="ncm-img ncm-img-lit" src="${esc(mapImage())}" alt="" draggable="false" aria-hidden="true">
+          <canvas class="ncm-lights ncm-bloom" aria-hidden="true"></canvas>
+          <canvas class="ncm-lights ncm-main" aria-hidden="true"></canvas>
           <canvas class="ncm-lights ncm-flick" aria-hidden="true"></canvas>
           <svg class="ncm-svg" viewBox="0 0 1000 ${Math.round(1000 * aspect)}" preserveAspectRatio="none"></svg>
           <div class="ncm-streets"></div>

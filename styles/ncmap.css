@@ -581,10 +581,12 @@
 .ncm-term-dlg .ncm-term-mgr .bar{display:flex;gap:6px}
 
 /* ---------------- ночные огни ---------------- */
+#ncm .ncm-img.ncm-img-lit { opacity: 0; transition: opacity 2.4s ease; pointer-events: none; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+#ncm.ncm-night.ncm-litmap .ncm-img.ncm-img-lit { opacity: .9; filter: brightness(.8) sepia(.75) saturate(2.2) hue-rotate(-12deg); }
 #ncm .ncm-lights { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: 0; transition: opacity 1.6s ease; mix-blend-mode: screen; }
 #ncm.ncm-lit .ncm-lights { opacity: 1; }
-#ncm.ncm-lit .ncm-lights:not(.ncm-flick) { animation: ncm-hum 6s ease-in-out infinite; }
+#ncm.ncm-lit .ncm-bloom { filter: blur(6px) brightness(2.2) saturate(1.4); opacity: .85; animation: ncm-hum 6s ease-in-out infinite; }
 #ncm.ncm-lit .ncm-flick { animation: ncm-flicker 2.3s steps(1) infinite; }
-#ncm.ncm-lit .ncm-img { filter: brightness(.62) saturate(.8); }
-@keyframes ncm-hum { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.18); } }
+#ncm.ncm-lit .ncm-img:not(.ncm-img-lit) { filter: brightness(.5) saturate(.7); }
+@keyframes ncm-hum { 0%, 100% { opacity: .7; } 50% { opacity: 1; } }
 @keyframes ncm-flicker { 0%, 100% { opacity: 1; } 12% { opacity: .35; } 15% { opacity: 1; } 47% { opacity: .6; } 52% { opacity: 1; } 78% { opacity: .2; } 80% { opacity: .9; } }
