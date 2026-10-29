@@ -1,3 +1,17 @@
+## 0.23.0 — terminals in the style of 2077
+
+- **Terminals**: computer screens to hack and browse. A breach screen, **Files** and **Messages** tabs, text typed out on screen, tables with highlighted rows, images that scan in, encrypted files that decrypt when opened, a live camera feed.
+- **Sound** made in the browser, no audio files: keystrokes, beeps, decryption, glitches, alarms, camera hum. **M** or the ♪ button mutes it. The volume follows Foundry's interface volume.
+- **For the GM**: the terminal icon in the token tools → **Import .json**. The terminal is kept in the world settings, nothing to upload to the server. **Open for me**, **Show to all players** (it opens for everyone and stays in their list), **Give to players' list without opening**, **Rename**, **Download .json**, **Delete**, **Close for everyone**.
+- **For players**: each one browses the terminal on their own: click files and messages, arrows to move, **R** to restart. Shared terminals can be reopened from the same button.
+
+## 0.23.0 — терминалы в стиле 2077
+
+- **Терминалы**: экраны компьютеров, которые можно взломать и полистать. Экран взлома, вкладки **«Файлы»** и **«Сообщения»**, печатающийся текст, таблицы с подсвеченными строками, картинки, которые «сканируются», зашифрованные файлы с дешифровкой при открытии, живая камера.
+- **Звук** собирается прямо в браузере, без аудиофайлов: клавиши, сигналы, дешифровка, глитчи, тревога, гул камеры. Выключить: **M** или кнопка ♪. Громкость берётся из громкости интерфейса Foundry.
+- **Мастеру**: значок терминала в инструментах токена → **«Импорт .json»**. Терминал хранится в настройках мира, на сервер ничего загружать не надо. Есть кнопки **«Открыть у себя»**, **«Показать всем игрокам»** (откроется у всех и останется в их списке), **«Дать игрокам в список, не открывая»**, **«Переименовать»**, **«Скачать .json»**, **«Удалить»** и **«Закрыть у всех»**.
+- **Игрокам**: каждый листает терминал сам: клик по файлам и сообщениям, стрелки, **R** — перезапуск. Терминалы, которые показал мастер, можно открыть снова той же кнопкой.
+
 ## 0.22.0 — reset to defaults, shop stock editing
 
 - **Reset to defaults**: **Places** → **Reset…**. Pick what to restore: place edits, your pins, custom districts and street labels, painted roads, the map image and road grid in settings, and optionally shops, gigs and Agent data. Map data lives in the **world settings**, so reinstalling the module never reset it. This is the way back to a clean map. Export first if you might want your setup again.
