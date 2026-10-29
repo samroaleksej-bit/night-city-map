@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>54 на ночь</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:system-ui,sans-serif;color:#eee;user-select:none}
+.sl{position:absolute;inset:0;opacity:0;transition:opacity .35s}
+.sl.on{opacity:1}
+.sl .bg{position:absolute;inset:-40px;background-size:cover;background-position:center;filter:blur(28px) brightness(.35)}
+.sl img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform-origin:50% 50%}
+.sl.on img{animation:kb 30s ease-out forwards}
+@keyframes kb{from{transform:scale(1)}to{transform:scale(1.07)}}
+.sl.shake img{animation:kb 30s ease-out forwards,jit .18s steps(2) infinite}
+@keyframes jit{0%{translate:0 0;filter:none}50%{translate:-6px 2px;filter:drop-shadow(6px 0 rgba(255,0,60,.6)) drop-shadow(-6px 0 rgba(0,255,255,.6))}}
+#scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(transparent 0 3px,rgba(0,0,0,.16) 3px 4px),radial-gradient(ellipse at 50% 50%,transparent 62%,rgba(0,0,0,.55));z-index:5}
+#glx{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.08) 0 2px,transparent 2px 7px);mix-blend-mode:screen}
+#glx.go{animation:gl .45s steps(4)}
+@keyframes gl{0%{opacity:1;transform:translateX(-14px);background-color:rgba(255,0,60,.25)}50%{opacity:.8;transform:translateX(10px);background-color:rgba(0,255,255,.2)}100%{opacity:0;transform:none}}
+#hud{position:absolute;left:18px;top:14px;z-index:8;font:700 13px monospace;letter-spacing:.2em;color:rgba(255,80,80,.85);text-shadow:0 0 6px #000}
+#hud i{display:inline-block;width:9px;height:9px;border-radius:50%;background:#ff2a3a;margin-right:8px;animation:bl 1s infinite}
+@keyframes bl{50%{opacity:.2}}
+#nav{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);z-index:8;display:flex;gap:6px;opacity:0;transition:opacity .3s}
+body:hover #nav{opacity:1}
+#nav b{width:22px;height:5px;background:rgba(255,255,255,.25);cursor:pointer}#nav b.a{background:#ff2a3a}
+.ar{position:absolute;top:0;bottom:0;width:14%;z-index:7;cursor:pointer}.ar.l{left:0}.ar.r{right:0}
+#snd{position:absolute;right:14px;top:10px;z-index:8;font:700 12px monospace;letter-spacing:.15em;padding:5px 10px;border:1px solid rgba(255,255,255,.35);cursor:pointer;opacity:.5}
+#snd:hover{opacity:1}
+#gate{position:absolute;inset:0;z-index:20;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;cursor:pointer;font:800 46px system-ui;color:#ff2a3a;letter-spacing:.06em}
+#gate small{font:600 14px monospace;color:#888;letter-spacing:.2em}
+</style></head><body>
+<div id="stage"></div><div id="scan"></div><div id="glx"></div>
+<div id="hud"><i></i>54 НА НОЧЬ · <span id="no"></span></div>
+<div class="ar l" id="pv"></div><div class="ar r" id="nx"></div>
+<div id="nav"></div><div id="snd">♪ ЗВУК</div>
+<div id="gate">▶ В ЭФИР<small>КЛИК — ВКЛЮЧИТЬ ЗВУК</small></div>
+<script>
+/* Кадры выпуска: картинка, фоновые петли [звук, громкость], разовые звуки [звук, сек, громкость]. */
+const S=[
+ {i:'01',t:'Заставка',loops:[['bed',.32,2]],one:[['sting',0,1]]},
+ {i:'02',t:'Ханна Вэй',loops:[['bed',.22]],one:[['chime_biz',.1,.6]]},
+ {i:'03',t:'Рик у клиники',loops:[['rain',.55],['city',.25]],one:[['siren',.4,.35],['siren',8,.25]]},
+ {i:'04',t:'Кап. Соколов',loops:[['rain',.25],['city',.2]],one:[['shutter',.2,.7],['shutter',1.4,.5],['radio',3,.45]]},
+ {i:'05',t:'Перечёркнутый тег',loops:[['rain',.4]],one:[['spray',.3,.8],['click',3.4,.6]]},
+ {i:'06',t:'Порт с дрона',loops:[['drone',.35],['wind',.35]],one:[['horn',1.5,.55]]},
+ {i:'07',t:'Джун Сити',loops:[['bed',.22]],one:[['chime_biz',.1,.6]]},
+ {i:'08',t:'Шуц на форуме',loops:[['bed',.12]],one:[['applause',.2,.6]]},
+ {i:'09',t:'Реклама Biotechnica',loops:[['piano',.55]],one:[]},
+ {i:'10',t:'Кабинет риппердока',loops:[['rain',.15],['static',.04]],one:[['radio',.4,.45],['click',1.5,.6],['shutter',2.2,.6],['glass',3.4,.5],['siren',5,.12]]},
+ {i:'11',t:'QR-код GRIM',loops:[['drone',.2],['city',.25]],one:[['crowd',.2,.55],['shutter',1,.4],['crowd',3.5,.35]]},
+ {i:'12',t:'Погода',loops:[['wind',.35],['rain',.18]],one:[['chime_weather',.1,.6]]},
+ {i:'13',t:'Перехват эфира',loops:[['static',.28]],one:[['hack',0,1],['glitch',.6,.8],['glitch',1.3,.8]],shake:true},
+];
+let P=null;try{P=window.parent!==window&&window.parent.game?window.parent:null}catch(e){}
+const $=s=>document.querySelector(s);
+/* ---------- звук ---------- */
+const A={ctx:null,out:null,buf:{},loops:[],timers:[],on:true,
+  init(){if(this.ctx)return;let c=null;try{const pc=P&&P.game.audio&&(P.game.audio.interface||P.game.audio.context);if(pc&&pc.createGain)c=pc}catch(e){}
+    if(!c)c=new (window.AudioContext||window.webkitAudioContext)();this.ctx=c;this.out=c.createGain();
+    let v=.9;try{if(P)v=Number(P.game.settings.get('core','globalInterfaceVolume'))||.5}catch(e){}this.base=v;
+    try{this.on=localStorage.getItem('ncd-news-mute')!=='1'}catch(e){}this.out.gain.value=this.on?v:0;this.out.connect(c.destination);btn()},
+  async load(n){if(this.buf[n])return this.buf[n];this.buf[n]=fetch('sfx/'+n+'.ogg').then(r=>r.arrayBuffer()).then(b=>this.ctx.decodeAudioData(b)).catch(()=>null);return this.buf[n]},
+  async play(n,vol,loop){const b=await this.load(n);if(!b)return null;const s=this.ctx.createBufferSource(),g=this.ctx.createGain();s.buffer=b;s.loop=!!loop;
+    g.gain.value=loop?0:vol;s.connect(g);g.connect(this.out);s.start(loop?this.ctx.currentTime:0,loop?Math.random()*Math.max(0,b.duration-1):0);
+    if(loop){g.gain.setValueAtTime(0,this.ctx.currentTime);g.gain.linearRampToValueAtTime(vol,this.ctx.currentTime+1.2)}return{s,g}},
+  stopAll(){const t=this.ctx.currentTime;this.timers.forEach(clearTimeout);this.timers=[];
+    this.loops.forEach(p=>p.then(x=>{if(!x)return;x.g.gain.cancelScheduledValues(t);x.g.gain.setValueAtTime(x.g.gain.value,t);x.g.gain.linearRampToValueAtTime(0,t+.6);x.s.stop(t+.7)}));this.loops=[]},
+  scene(k){if(!this.ctx)return;this.stopAll();const sc=S[k];this.play('whoosh',.35);
+    sc.loops.forEach(([n,v,dl])=>this.timers.push(setTimeout(()=>this.loops.push(this.play(n,v,true)),(dl||0)*1000)));
+    sc.one.forEach(([n,at,v])=>this.timers.push(setTimeout(()=>this.play(n,v),at*1000)))},
+  toggle(){this.on=!this.on;if(this.out)this.out.gain.value=this.on?this.base:0;try{localStorage.setItem('ncd-news-mute',this.on?'0':'1')}catch(e){}btn()}};
+function btn(){$('#snd').textContent=A.on?'♪ ЗВУК':'♪ ВЫКЛ'}
+/* ---------- кадры ---------- */
+const st=$('#stage'),nav=$('#nav');
+S.forEach((s,k)=>{const d=document.createElement('div');d.className='sl'+(s.shake?' shake':'');d.innerHTML=`<div class="bg" style="background-image:url(img/${s.i}.webp)"></div><img src="img/${s.i}.webp" alt="${s.t}">`;st.appendChild(d);
+  const b=document.createElement('b');b.title=s.t;b.onclick=()=>go(k,true);nav.appendChild(b)});
+let cur=-1;
+function go(k,user){k=Math.max(0,Math.min(S.length-1,k));if(k===cur)return;
+  const els=[...st.children];els.forEach((e,i)=>{e.classList.toggle('on',i===k);if(i===k){const im=e.querySelector('img');im.style.animation='none';void im.offsetWidth;im.style.animation=''}});
+  [...nav.children].forEach((b,i)=>b.classList.toggle('a',i===k));
+  $('#no').textContent=String(k+1).padStart(2,'0')+' / '+S.length+' · '+S[k].t.toUpperCase();
+  const g=$('#glx');g.classList.remove('go');void g.offsetWidth;g.classList.add('go');
+  cur=k;A.scene(k);
+  if(user)try{parent.postMessage({type:'ncd-slide',id:'news-54',n:k},'*')}catch(e){}
+  try{history.replaceState(null,'','#'+(k+1))}catch(e){}
+}
+$('#pv').onclick=()=>go(cur-1,true);$('#nx').onclick=()=>go(cur+1,true);$('#snd').onclick=()=>A.toggle();
+addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' ','Enter'].includes(e.key)){e.preventDefault();go(cur+1,true)}
+  if(['ArrowLeft','PageUp'].includes(e.key))go(cur-1,true);if(/^[mMьЬ]$/.test(e.key))A.toggle();if(e.key==='Home')go(0,true)});
+addEventListener('message',e=>{const d=e.data;if(d&&d.type==='ncd-goto'&&typeof d.n==='number')go(d.n,false)});
+(async function(){A.init();
+  if(A.ctx.state!=='running'){const g=$('#gate');g.style.display='flex';await new Promise(r=>g.onclick=r);try{await A.ctx.resume()}catch(e){}g.remove()}
+  ['whoosh','bed','sting'].forEach(n=>A.load(n));
+  const h=parseInt(location.hash.slice(1));go(isNaN(h)?0:h-1,false);
+  S.forEach(s=>[...s.loops,...s.one].forEach(([n])=>A.load(n)));
+})();
+</script></body></html>

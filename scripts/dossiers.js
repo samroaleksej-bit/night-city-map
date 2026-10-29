@@ -48,8 +48,24 @@ async function panel() {
   }, { width: 640, classes: ["ncd-dialog"] }).render(true);
 }
 
+/* Кадры выпуска новостей: мастер листает — у игроков кадр переключается следом. */
+function sendToFrame(id, msg) {
+  const w = Object.values(ui.windows).find(x => x.id === `ncd-${id}`);
+  const fr = (w?.element?.[0] ?? w?.element)?.querySelector?.("iframe");
+  try { fr?.contentWindow?.postMessage(msg, "*"); } catch (e) { /* */ }
+}
+window.addEventListener("message", (ev) => {
+  const d = ev.data;
+  if (d?.type !== "ncd-slide" || !game.user?.isGM) return;
+  game.socket.emit(SOCKET, { action: "slide", id: d.id, n: d.n });
+});
+
 Hooks.once("ready", () => {
-  game.socket.on(SOCKET, (d) => { if (d?.action === "open" && !game.user.isGM) open(d.id, d.folder); });
+  game.socket.on(SOCKET, (d) => {
+    if (game.user.isGM) return;
+    if (d?.action === "open") open(d.id, d.folder);
+    if (d?.action === "slide") sendToFrame(d.id, { type: "ncd-goto", n: d.n });
+  });
   const api = { open, show, panel };
   game.modules.get(MID).api = api; globalThis.NCDossiers = api;
 });
