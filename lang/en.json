@@ -1,38 +1,40 @@
 {
- "NCM": {
-  "Settings": {
-   "LangName": "Map language",
-   "LangHint": "Language of the map, the Agent phone and generated gigs. “Auto” follows Foundry's language (Russian if Foundry is in Russian, otherwise English).",
-   "LangAuto": "Auto (Foundry language)",
-   "ImageName": "Map image",
-   "ImageHint": "The Night City 2045 map file (without legend). Points are tied to this map's proportions.",
-   "WidthName": "Map width, km",
-   "WidthHint": "Used for distances and travel time.",
-   "ScanName": "Blue scanner line",
-   "ScanHint": "A blue scan line that sweeps down the map (each player sets their own).",
-   "ScanFull": "Bright",
-   "ScanSoft": "Dim",
-   "ScanOff": "Off",
-   "ScName": "Sync with Simple Calendar",
-   "ScHint": "The map clock follows the “Night City 2045” calendar in Simple Calendar (Foundry world time). The 📅 button on the map clock sets the calendar up.",
-   "AgentName": "Agent on startup",
-   "AgentHint": "The Agent phone opens automatically when you join the game (each player sets their own).",
-   "NotifyName": "Notify players about new gigs",
-   "AgentOnName": "Agent phone",
-   "AgentOnHint": "Show the Agent phone: the button on the map, the Shift+A key and the scene control. Off — the Agent is gone for everyone.",
-   "BuyName": "Buying in shops",
-   "BuyHint": "Players buy from shops and Night Markets with the cart button. Eddies are taken from the character and the item goes on the sheet (Cyberpunk RED). Other systems get a chat note.",
-   "BuyGm": "GM approves each purchase",
-   "BuyAuto": "Instantly, no GM",
-   "BuyOff": "Off",
-   "CallName": "Call ringtone",
-   "CallHint": "Sound of an incoming holo-call for players (mp3, ogg, wav). Empty — the module's built-in tone. Volume follows Foundry's interface volume.",
-   "RoadsName": "Road grid image",
-   "RoadsHint": "Grid the routes follow: white streets, gray land, black water, same proportions as the map. Empty — the module's Night City 2045 grid. Small fixes can be painted on the map with the Roads button."
-  },
-  "Keys": {
-   "Agent": "Agent (phone)",
-   "Open": "Open the Night City map"
+  "NCM": {
+    "Settings": {
+      "LangName": "Map language",
+      "LangHint": "Language of the map, the Agent phone and generated gigs. “Auto” follows Foundry's language (Russian if Foundry is in Russian, otherwise English).",
+      "LangAuto": "Auto (Foundry language)",
+      "ImageName": "Map image",
+      "ImageHint": "The Night City 2045 map file (without legend). Points are tied to this map's proportions.",
+      "WidthName": "Map width, km",
+      "WidthHint": "Used for distances and travel time.",
+      "ScanName": "Blue scanner line",
+      "ScanHint": "A blue scan line that sweeps down the map (each player sets their own).",
+      "ScanFull": "Bright",
+      "ScanSoft": "Dim",
+      "ScanOff": "Off",
+      "ScName": "Sync with Simple Calendar",
+      "ScHint": "The map clock follows the “Night City 2045” calendar in Simple Calendar (Foundry world time). The 📅 button on the map clock sets the calendar up.",
+      "AgentName": "Agent on startup",
+      "AgentHint": "The Agent phone opens automatically when you join the game (each player sets their own).",
+      "NotifyName": "Notify players about new gigs",
+      "AgentOnName": "Agent phone",
+      "AgentOnHint": "Show the Agent phone: the button on the map, the Shift+A key and the scene control. Off — the Agent is gone for everyone.",
+      "BuyName": "Buying in shops",
+      "BuyHint": "Players buy from shops and Night Markets with the cart button. Eddies are taken from the character and the item goes on the sheet (Cyberpunk RED). Other systems get a chat note.",
+      "BuyGm": "GM approves each purchase",
+      "BuyAuto": "Instantly, no GM",
+      "BuyOff": "Off",
+      "CallName": "Call ringtone",
+      "CallHint": "Sound of an incoming holo-call for players (mp3, ogg, wav). Empty — the module's built-in tone. Volume follows Foundry's interface volume.",
+      "RoadsName": "Road grid image",
+      "RoadsHint": "Grid the routes follow: white streets, gray land, black water, same proportions as the map. Empty — the module's Night City 2045 grid. Small fixes can be painted on the map with the Roads button.",
+      "LightsName": "City lights at night",
+      "LightsHint": "At night the map lights up: street lamps along the roads, windows and neon by district, fires in the combat zones. Turn off on a slow computer."
+    },
+    "Keys": {
+      "Agent": "Agent (phone)",
+      "Open": "Open the Night City map"
+    }
   }
- }
 }

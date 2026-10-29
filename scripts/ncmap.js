@@ -61,6 +61,10 @@ Hooks.once("init", () => {
     name: "NCM.Settings.ScanName", hint: "NCM.Settings.ScanHint",
     scope: "client", config: true, type: String, default: "full", choices: { full: "NCM.Settings.ScanFull", soft: "NCM.Settings.ScanSoft", off: "NCM.Settings.ScanOff" }, onChange: () => UI.rebuild()
   });
+  game.settings.register(MID, "nightLights", {
+    name: "NCM.Settings.LightsName", hint: "NCM.Settings.LightsHint",
+    scope: "client", config: true, type: Boolean, default: true, onChange: () => Lights.sync(true)
+  });
   game.settings.register(MID, "scSync", {
     name: "NCM.Settings.ScName", hint: "NCM.Settings.ScHint",
     scope: "world", config: true, type: Boolean, default: true, onChange: () => onTime(true)
@@ -303,6 +307,86 @@ function zoneAt(x, y) {
   if (inPoly(x, y, ZONES.combat) && !inCircle(x, y, ZONES.glen)) return "combat";
   return null;
 }
+
+/* ================================================================ ночные огни */
+
+/** Ночью город загорается: фонари вдоль улиц (сетка дорог), окна и неон по районам, костры в боевых зонах.
+ *  Огни одинаковые у всех (фиксированное зерно), зажигаются волной по районам. */
+const Lights = {
+  pts: null, key: "", on: false, anim: 0, sprites: null,
+  rand(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; },
+  sprite(color, r) {
+    const c = document.createElement("canvas"), n = Math.ceil(r * 2); c.width = c.height = n;
+    const g = c.getContext("2d"), gr = g.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
+    gr.addColorStop(0, color); gr.addColorStop(0.25, color + "cc"); gr.addColorStop(0.55, color + "33"); gr.addColorStop(1, color + "00");
+    g.fillStyle = gr; g.fillRect(0, 0, n, n); return c;
+  },
+  build() {
+    const { w, h, cell } = GRID; if (!cell) return null;
+    const key = `${w}x${h}:${GRID.key}:${dists().length}`;
+    if (this.pts && this.key === key) return this.pts;
+    const R = this.rand(2045), pts = [], distOrder = {};
+    dists().forEach(d => { distOrder[d.id] = R(); });
+    const RICH = new Set(["exec", "westbrook", "marina", "uni"]);
+    const DENS = { 0: 0, 1: 1, 2: .75, 3: .5, 4: .22, 5: .05 };
+    for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
+      const v = cell[y * w + x]; if (!v) continue;
+      const r0 = R(); if (r0 > (v === 1 ? 0.09 : 0.026)) continue;
+      const nx = x / (w - 1), ny = y / (h - 1), d = districtAt(nx, ny), z = zoneAt(nx, ny);
+      if (!d) continue;
+      const far = Math.exp(-((d.x - nx) ** 2 + (d.y - ny) ** 2) / 0.009); // к окраинам огни редеют
+      let dens = DENS[d?.danger ?? 2] ?? .6; if (z === "hot") dens = .04; else if (z === "combat") dens = Math.min(dens, .2);
+      if (R() > dens * far) continue;
+      let col, sz = 1;
+      if (z === "hot" || (z === "combat" && R() < .35)) { if (R() > .25) continue; col = "fire"; sz = 1.8; }
+      else if (v === 1) { col = R() < .85 ? "lamp" : "lampw"; }
+      else if (RICH.has(d?.id)) { const q = R(); col = q < .4 ? "white" : q < .65 ? "gold" : q < .85 ? "cyan" : "pink"; sz = R() < .08 ? 2.2 : 1; }
+      else { const q = R(); col = q < .45 ? "warm" : q < .62 ? "gold" : q < .8 ? "pink" : q < .92 ? "cyan" : "white"; sz = R() < .05 ? 2 : 1; }
+      pts.push({ x: nx, y: ny, col, sz, flick: col === "fire" || R() < .04, t: (distOrder[d?.id] ?? R()) * .75 + R() * .25 });
+    }
+    // огни кораблей и причалов: вода рядом с сушей
+    for (let i = 0; i < 2500; i++) {
+      const x = Math.floor(R() * w), y = Math.floor(R() * h); if (cell[y * w + x] !== 0) continue;
+      let shore = false; for (let k = 1; k <= 6 && !shore; k++) shore = cell[y * w + Math.min(w - 1, x + k)] || cell[y * w + Math.max(0, x - k)] || cell[Math.min(h - 1, y + k) * w + x] || cell[Math.max(0, y - k) * w + x];
+      if (shore && R() < .5) pts.push({ x: x / (w - 1), y: y / (h - 1), col: R() < .5 ? "red" : "white", sz: 1, flick: R() < .3, t: R() });
+    }
+    pts.sort((a, b) => a.t - b.t);
+    this.pts = pts; this.key = key; return pts;
+  },
+  canvases() { const el = UI.el; return el ? [...el.querySelectorAll(".ncm-lights")] : []; },
+  /** Мир включил/выключил ночь — зажечь или погасить. */
+  async sync(force) {
+    const [cv] = this.canvases(); if (!cv) return;
+    let want = isNight(); try { want = want && game.settings.get(MID, "nightLights"); } catch (e) { /* */ }
+    if (!want) { if (this.on || force) { this.on = false; cancelAnimationFrame(this.anim); UI.el.classList.remove("ncm-lit"); } return; }
+    if (this.on && !force && cv.dataset.drawn === "1") return;
+    this.on = true;
+    await loadGrid(); if (!GRID.cell || !this.on) return;
+    this.draw();
+  },
+  draw() {
+    const cvs = this.canvases(), [cv, fl] = cvs; if (!cv) return;
+    const pts = this.build(); if (!pts) return;
+    const W = 1600, H = Math.round(W * aspect);
+    for (const c of cvs) { c.width = W; c.height = H; c.getContext("2d").clearRect(0, 0, W, H); }
+    const COL = { lamp: "#ffae4a", lampw: "#ffe2a8", white: "#e6f4ff", gold: "#ffd27a", cyan: "#5ef6ff", pink: "#ff4fd2", warm: "#ffc070", fire: "#ff6a1a", red: "#ff2a3a" };
+    this.sprites ??= Object.fromEntries(Object.entries(COL).flatMap(([k, c]) => [[k + "1", this.sprite(c, 4)], [k + "2", this.sprite(c, 9)]]));
+    const g = cv.getContext("2d"), gf = fl.getContext("2d"); g.globalCompositeOperation = gf.globalCompositeOperation = "lighter";
+    UI.el.classList.add("ncm-lit"); cv.dataset.drawn = "1";
+    const total = pts.length, dur = 2600, t0 = performance.now(); let i = 0;
+    cancelAnimationFrame(this.anim);
+    const step = (now) => {
+      if (!this.on) return;
+      const upto = Math.min(total, Math.floor(total * Math.min(1, (now - t0) / dur) ** 1.4) + 1);
+      for (; i < upto; i++) {
+        const p = pts[i], sp = this.sprites[p.col + (p.sz > 1.5 ? "2" : "1")], x = p.x * W, y = p.y * H;
+        (p.flick ? gf : g).drawImage(sp, x - sp.width / 2, y - sp.height / 2);
+      }
+      if (i < total) this.anim = requestAnimationFrame(step);
+    };
+    this.anim = requestAnimationFrame(step);
+  },
+};
 
 /* ================================================================ маршрут */
 
@@ -561,6 +645,8 @@ const UI = {
         <div class="ncm-world">
           <img class="ncm-img" src="${esc(mapImage())}" alt="" draggable="false">
           <div class="ncm-nightfx" aria-hidden="true"></div>
+          <canvas class="ncm-lights" aria-hidden="true"></canvas>
+          <canvas class="ncm-lights ncm-flick" aria-hidden="true"></canvas>
           <svg class="ncm-svg" viewBox="0 0 1000 ${Math.round(1000 * aspect)}" preserveAspectRatio="none"></svg>
           <div class="ncm-streets"></div>
           <canvas class="ncm-roads" hidden></canvas>
@@ -669,6 +755,7 @@ const UI = {
   renderMarkers() {
     const s = state(), q = this.query.toLowerCase();
     this.el.classList.toggle("ncm-night", isNight(s));
+    Lights.sync();
     this.renderClock();
     const qByPoi = {};
     for (const qu of questsVisible()) if (qu.status === "active" || (isGM() && qu.status === "hidden")) { if (qu.target) (qByPoi[qu.target] ??= []).push(qu); if (qu.giver) (qByPoi[qu.giver] ??= []).push(qu); }

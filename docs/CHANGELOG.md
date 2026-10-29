@@ -1,3 +1,13 @@
+## 0.26.0 — the city lights up at night
+
+- **Night lights**: when night falls on the map (21:00–06:00 or the GM's night switch), the city lights up in a wave, district by district: street lamps along the roads, windows and neon (rich districts brighter and colder, the outskirts sparse), fires in the Combat Zones and the Hot Zone, lights of ships along the shore. Some lights flicker, the city slowly breathes. At dawn the lights fade out.
+- Lights are the same for everyone at the table. **Settings → City lights at night** turns them off on a slow computer (per player).
+
+## 0.26.0 — ночью город загорается
+
+- **Ночные огни**: когда на карте наступает ночь (21:00–06:00 или переключатель ночи у мастера), город загорается волной, район за районом: фонари вдоль улиц, окна и неон (богатые районы ярче и холоднее, окраины реже), костры в Боевых зонах и Зоне Поражения, огни судов у берега. Часть огней мерцает, город медленно «дышит». Утром огни гаснут.
+- Огни одинаковые у всех за столом. **Настройки → «Огни города ночью»** выключают их на слабом компьютере (у каждого игрока своя галочка).
+
 ## 0.25.1 — fixes
 
 - A terminal's sound stops when its window is closed (the camera hum kept playing in Foundry's audio).

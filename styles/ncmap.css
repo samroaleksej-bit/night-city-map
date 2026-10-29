@@ -579,3 +579,12 @@
 .ncm-term-dlg .ncm-term-row button{width:28px;height:26px;line-height:24px;padding:0;margin:0;flex:none}
 .ncm-term-dlg .ncm-term-mgr .empty{padding:10px;opacity:.7;font-style:italic}
 .ncm-term-dlg .ncm-term-mgr .bar{display:flex;gap:6px}
+
+/* ---------------- ночные огни ---------------- */
+#ncm .ncm-lights { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; opacity: 0; transition: opacity 1.6s ease; mix-blend-mode: screen; }
+#ncm.ncm-lit .ncm-lights { opacity: 1; }
+#ncm.ncm-lit .ncm-lights:not(.ncm-flick) { animation: ncm-hum 6s ease-in-out infinite; }
+#ncm.ncm-lit .ncm-flick { animation: ncm-flicker 2.3s steps(1) infinite; }
+#ncm.ncm-lit .ncm-img { filter: brightness(.62) saturate(.8); }
+@keyframes ncm-hum { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.18); } }
+@keyframes ncm-flicker { 0%, 100% { opacity: 1; } 12% { opacity: .35; } 15% { opacity: 1; } 47% { opacity: .6; } 52% { opacity: 1; } 78% { opacity: .2; } 80% { opacity: .9; } }
