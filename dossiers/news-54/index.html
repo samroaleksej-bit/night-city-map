@@ -34,6 +34,7 @@ body:hover #nav{opacity:1}
 <div id="gate">▶ В ЭФИР<small>КЛИК — ВКЛЮЧИТЬ ЗВУК</small></div>
 <script>
 /* Кадры выпуска: картинка, фоновые петли [звук, громкость], разовые звуки [звук, сек, громкость]. */
+const LOOP_S=18; // фон кадра звучит 18 с и затихает
 const S=[
  {i:'01',t:'Заставка',loops:[['bed',.32,2]],one:[['sting',0,1]]},
  {i:'02',t:'Ханна Вэй',loops:[['bed',.22]],one:[['chime_biz',.1,.6]]},
@@ -60,7 +61,9 @@ const A={ctx:null,out:null,buf:{},loops:[],timers:[],on:true,
   async load(n){if(this.buf[n])return this.buf[n];this.buf[n]=fetch('sfx/'+n+'.ogg').then(r=>r.arrayBuffer()).then(b=>this.ctx.decodeAudioData(b)).catch(()=>null);return this.buf[n]},
   async play(n,vol,loop){const b=await this.load(n);if(!b)return null;const s=this.ctx.createBufferSource(),g=this.ctx.createGain();s.buffer=b;s.loop=!!loop;
     g.gain.value=loop?0:vol;s.connect(g);g.connect(this.out);s.start(loop?this.ctx.currentTime:0,loop?Math.random()*Math.max(0,b.duration-1):0);
-    if(loop){g.gain.setValueAtTime(0,this.ctx.currentTime);g.gain.linearRampToValueAtTime(vol,this.ctx.currentTime+1.2)}return{s,g}},
+    if(loop){const t=this.ctx.currentTime;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+1.2);g.gain.setValueAtTime(vol,t+LOOP_S);g.gain.linearRampToValueAtTime(0,t+LOOP_S+4);s.stop(t+LOOP_S+4.2)}
+    try{const R=P||window;R.__ncAudio=R.__ncAudio||new Set();R.__ncAudio.add(s);s.onended=()=>R.__ncAudio.delete(s)}catch(e){}return{s,g}},
+  kill(){this.timers.forEach(clearTimeout);this.timers=[];try{const R=P||window;(R.__ncAudio||[]).forEach(n=>{try{n.stop()}catch(e){}});R.__ncAudio&&R.__ncAudio.clear()}catch(e){}this.loops=[]},
   stopAll(){const t=this.ctx.currentTime;this.timers.forEach(clearTimeout);this.timers=[];
     this.loops.forEach(p=>p.then(x=>{if(!x)return;x.g.gain.cancelScheduledValues(t);x.g.gain.setValueAtTime(x.g.gain.value,t);x.g.gain.linearRampToValueAtTime(0,t+.6);x.s.stop(t+.7)}));this.loops=[]},
   scene(k){if(!this.ctx)return;this.stopAll();const sc=S[k];this.play('whoosh',.35);
@@ -85,7 +88,8 @@ function go(k,user){k=Math.max(0,Math.min(S.length-1,k));if(k===cur)return;
 $('#pv').onclick=()=>go(cur-1,true);$('#nx').onclick=()=>go(cur+1,true);$('#snd').onclick=()=>A.toggle();
 addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' ','Enter'].includes(e.key)){e.preventDefault();go(cur+1,true)}
   if(['ArrowLeft','PageUp'].includes(e.key))go(cur-1,true);if(/^[mMьЬ]$/.test(e.key))A.toggle();if(e.key==='Home')go(0,true)});
-addEventListener('message',e=>{const d=e.data;if(d&&d.type==='ncd-goto'&&typeof d.n==='number')go(d.n,false)});
+addEventListener('pagehide',()=>A.kill());
+addEventListener('message',e=>{if(e.data&&e.data.type==='ncd-stop')return A.kill();const d=e.data;if(d&&d.type==='ncd-goto'&&typeof d.n==='number')go(d.n,false)});
 (async function(){A.init();
   if(A.ctx.state!=='running'){const g=$('#gate');g.style.display='flex';await new Promise(r=>g.onclick=r);try{await A.ctx.resume()}catch(e){}g.remove()}
   ['whoosh','bed','sting'].forEach(n=>A.load(n));

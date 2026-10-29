@@ -9,6 +9,12 @@ class DossierWindow extends Application {
   static get defaultOptions() {
     return foundry.utils.mergeObject(super.defaultOptions, { width: Math.min(1180, window.innerWidth - 80), height: Math.min(820, window.innerHeight - 60), resizable: true, classes: ["ncd-window"], popOut: true });
   }
+  async close(options) {
+    // звук окна играет в аудио Foundry — гасим его вместе с окном
+    try { const f = (this.element?.[0] ?? this.element)?.querySelector?.("iframe"); f?.contentWindow?.postMessage({ type: "ncd-stop" }, "*"); } catch (e) { /* */ }
+    try { (globalThis.__ncAudio ?? []).forEach(n => { try { n.stop(); } catch (e) { /* */ } }); globalThis.__ncAudio?.clear(); } catch (e) { /* */ }
+    return super.close(options);
+  }
   async _renderInner() {
     const src = `modules/${MID}/dossiers/${this.d.id}/index.html${this.d.id.startsWith("term-") ? "?id=ncd-" + this.d.id : ""}${this.folder ? "#" + this.folder : ""}`;
     return $(`<div class="ncd-frame"><iframe src="${src}" title="${esc(this.d.name)}" allow="fullscreen"></iframe></div>`);
