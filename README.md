@@ -58,7 +58,7 @@ An in-game phone for every player: chats with the GM and fixers, available gigs,
 | ![Agent chats](docs/screens/12-agent-chats.webp) | ![Agent gigs](docs/screens/13-agent-gigs.webp) | ![Agent position](docs/screens/14-agent-me.webp) |
 
 ### Terminals
-2077-style computers to hack and browse: a breach screen, **Files** and **Messages** tabs, text that types itself out, tables, images, encrypted files that decrypt on open, a live camera feed, and sound (keys, beeps, glitches, alarms) made right in the browser, no audio files. **Terminals** button (the terminal icon in the token tools) → **Import .json**. The data is stored in the world, nothing to upload. **Show to all** opens it for every player, and each player browses it on their own; **Close for everyone** shuts it. Players can reopen shared terminals from the same button. The terminal format is plain JSON: `files` and `msgs`, each entry with text `lines`, a `table`, an `img` or a `cam`.
+2077-style computers to hack and browse: a breach screen, **Files** and **Messages** tabs, text that types itself out, tables, images, encrypted files that decrypt on open, a live camera feed, and sound (keys, beeps, glitches, alarms) made right in the browser, no audio files. **Terminals** button (the terminal icon in the token tools) → **Import .json**. The data is stored in the world, nothing to upload. **Show to all** opens it for every player, and each player browses it on their own; **Close for everyone** shuts it. Players can reopen shared terminals from the same button. The terminal format is plain JSON: `files` and `msgs`, each entry with text `lines`, a `table`, an `img` or a `cam`. Add an `arch` (NET Architecture) and the terminal gets a **NET** tab: floors with Password / File / Control Node / Black ICE and their DV, Interface + 1d10 checks with RED crits, Pathfinder, Slide, a shared run log; files and messages can sit behind floors.
 
 ### What players see
 Players get the same map without the GM tools: places, rumors, routes and their own markers.
@@ -125,7 +125,7 @@ Module code and texts: Verlierboy · [Circle of Masters](https://t.me/circleofdm
 - магазины и Ночные рынки с ценами по книге;
 - метки «Мы здесь» и «Я здесь»;
 - телефон «Агент»: чаты, контакты и голо-звонки (мастер звонит от имени NPC, игроки звонят контактам; своя мелодия — в настройках);
-- **терминалы** в стиле 2077: взлом, вкладки «Файлы» и «Сообщения», печатающийся текст, таблицы, картинки, зашифрованные файлы, камера и звук прямо в браузере. Кнопка «Терминалы» (значок терминала в инструментах токена) → «Импорт .json», данные хранятся в мире. «Показать всем» открывает терминал у каждого игрока, и каждый листает его сам;
+- **терминалы** в стиле 2077: взлом, вкладки «Файлы» и «Сообщения», печатающийся текст, таблицы, картинки, зашифрованные файлы, камера и звук прямо в браузере. Кнопка «Терминалы» (значок терминала в инструментах токена) → «Импорт .json», данные хранятся в мире. «Показать всем» открывает терминал у каждого игрока, и каждый листает его сам. С NET-архитектурой (`arch` в .json) появляется вкладка «Сеть»: уровни с паролями, файлами, узлами и Black ICE, проверки Интерфейс + 1d10 с критами RED, общий журнал забега;
 - часы и календарь, синхронизация с Simple Calendar;
 - свои места, правка и перенос встроенных, свои встречи, экспорт и импорт;
 - своя карта: свои районы с опасностью и подписи улиц (кнопка «Районы»), своя сетка дорог;

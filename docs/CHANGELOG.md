@@ -1,3 +1,17 @@
+## 0.24.0 — netrunning terminals by the Cyberpunk RED rules
+
+- **NET tab** in a terminal whose .json has an `arch` (NET Architecture): floors with a Password, File, Control Node or Black ICE, a DV, and the rules text right on the card. **Jack in**, **Go down**, **Pathfinder** (reveals the map), **Jack out** (warns about an unsafe jack out with active Black ICE).
+- **Checks**: the netrunner sets their **Interface** once, then **Backdoor / Eye-Dee / Control** roll Interface + 1d10 with Cyberpunk RED crits (10 explodes, 1 subtracts), or type in your own result from the sheet. **Slide** rolls against the ICE's PER + 1d10. Black ICE cards show PER / SPD / ATK / DEF / REZ and the effect; the fight itself is played at the table, then **Derez**.
+- **Files and messages behind floors**: until the floor is breached, they are locked and the name is redacted.
+- **Shared run**: the run's progress and log are the same for everyone at the table (kept by the GM in the world), so the crew watches the netrunner dive.
+
+## 0.24.0 — нетраннинг по правилам Cyberpunk RED в терминалах
+
+- **Вкладка «Сеть»** в терминале, у которого в .json есть `arch` (NET-архитектура): уровни с паролем, файлом, узлом управления или Black ICE, у каждого DV и подсказка по правилам прямо на карточке. Кнопки **«Подключиться»**, **«Спуститься»**, **Pathfinder** (открывает карту) и **«Отключиться»** (предупреждает о небезопасном выходе при активном льде).
+- **Проверки**: нетраннер один раз вводит свой **Интерфейс**, дальше **Backdoor / Eye-Dee / Control** бросают Интерфейс + 1d10 с критами RED (10 взрывается, 1 вычитает). Можно ввести свой результат с листа. **Slide** — против PER + 1d10 льда. На карточке Black ICE видны PER / SPD / ATK / DEF / REZ и эффект; сам бой идёт за столом, потом **«Дерезнуть»**.
+- **Файлы и сообщения за уровнями**: пока уровень не взломан, они закрыты, а название зачёркнуто блоками.
+- **Общий забег**: прогресс и журнал взлома одинаковые у всех за столом (их хранит мастер в мире), команда смотрит, как нетраннер ныряет.
+
 ## 0.23.0 — terminals in the style of 2077
 
 - **Terminals**: computer screens to hack and browse. A breach screen, **Files** and **Messages** tabs, text typed out on screen, tables with highlighted rows, images that scan in, encrypted files that decrypt when opened, a live camera feed.

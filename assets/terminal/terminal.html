@@ -7,7 +7,6 @@
 @font-face{font-family:Mono;font-weight:700;src:url(fonts/jetbrains-mono-latin-700-normal.woff2);unicode-range:U+0000-03FF}
 @font-face{font-family:Russo;font-weight:400;src:url(fonts/russo-one-cyrillic-400-normal.woff2);unicode-range:U+0400-04FF}
 @font-face{font-family:Russo;font-weight:400;src:url(fonts/russo-one-latin-400-normal.woff2);unicode-range:U+0000-03FF}
-
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0c0a0e;--ln:#ff5c50;--dim:#8a3530;--c:#5ef6ff;--y:#fcee0a;--tx:#ffc2b8}
 html,body{width:100%;height:100%;overflow:hidden;background:#070608}
@@ -85,6 +84,23 @@ tr.alert td{color:var(--c)}tr.warn td{color:var(--y)}
 #gate{position:absolute;inset:0;z-index:75;background:#070608;display:none;align-items:center;justify-content:center;font:400 54px Russo;color:var(--c);cursor:pointer;letter-spacing:.1em;text-shadow:3px 0 rgba(255,92,80,.6)}
 #gate:hover{color:#fff}
 .it.unread .t:after{content:attr(data-new)}
+.it.nlock .t{color:#5a2622}.it.nlock .m span:first-child{color:var(--ln)}
+.it.fl.here{box-shadow:inset 0 0 0 2px var(--c)}.it.fl.ok .m span:last-child{color:var(--y)}.it.fl.ice .t{color:var(--c)}.it.fl.ice .m span:last-child{color:var(--c)}
+#ph input{width:56px;background:#1a1012;border:1px solid var(--ln);color:#fff;font:700 18px Mono;padding:2px 6px}
+.nbar{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap}
+#pb button{background:transparent;border:1.5px solid var(--ln);color:var(--ln);font:700 17px Mono;letter-spacing:.12em;padding:10px 20px;cursor:pointer}
+#pb button:hover{background:rgba(255,92,80,.15);color:#fff}#pb button.hot{background:var(--ln);color:var(--bg)}#pb button.dim{border-color:var(--dim);color:var(--dim);margin-left:auto}
+#pb button:disabled{opacity:.3;cursor:default}
+.fcard{border:1.5px solid rgba(255,92,80,.45);padding:20px 24px;background:rgba(255,92,80,.04);clip-path:polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,0 100%)}
+.fcard.ice{border-color:var(--c);background:rgba(94,246,255,.05)}.fcard.ice .big{color:var(--c)}
+.fcard .fh{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.fcard .dv{font:700 26px Russo;color:var(--y)}
+.fcard .ln{font-size:19px;margin-top:6px}
+.ice-st{display:flex;gap:10px;margin:12px 0}.ice-st div{border:1px solid var(--c);padding:6px 14px;text-align:center;min-width:86px}.ice-st small{display:block;font-size:13px;color:var(--c);letter-spacing:.2em}.ice-st b{font:400 30px Russo;color:#fff}
+.rollr{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}.rollr .d{font-size:15px}
+.rollr input{width:80px;background:#1a1012;border:1px solid var(--ln);color:#fff;font:700 20px Mono;padding:8px}
+.rres{margin-top:16px;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border:2px solid;font-size:19px;animation:rowin .4s}
+.rres.okk{border-color:var(--y);color:var(--y)}.rres.bad{border-color:var(--ln);color:var(--ln)}.rres .v{font:400 30px Russo}.rres em{font-style:normal;color:var(--c)}
+.nlog{position:absolute;left:34px;right:34px;bottom:20px;font-size:16px;line-height:1.6;color:var(--tx);border-top:1px solid rgba(255,92,80,.3);padding-top:10px}
 #hint{position:fixed;right:12px;bottom:6px;font:400 12px monospace;letter-spacing:.2em;color:#8a3530;z-index:90;animation:hf 5s forwards}@keyframes hf{0%,70%{opacity:1}100%{opacity:0}}
 </style></head><body>
 <div id="stage">
@@ -143,8 +159,8 @@ const S={ctx:null,out:null,on:true,last:{},hum:null,
   alarm(){for(let i=0;i<3;i++){this.tone(880,.18,{type:'square',vol:.07,at:i*.42});this.tone(660,.18,{type:'square',vol:.07,at:i*.42+.2})}},
   img(){if(this.lim('img',40))this.noise(.05,{vol:.04,f:7000,q:3})},
   humOn(){if(!this.ok()||this.hum)return;const c=this.ctx,o=c.createOscillator(),g=c.createGain(),s=c.createBufferSource(),b=c.createBiquadFilter(),g2=c.createGain();
-    o.type='sawtooth';o.frequency.value=50;g.gain.value=.015;o.connect(g);g.connect(this.out);o.start();
-    s.buffer=this.noiseBuf;s.loop=true;b.type='lowpass';b.frequency.value=1200;g2.gain.value=.025;s.connect(b);b.connect(g2);g2.connect(this.out);s.start();this.hum=[o,s]},
+    o.type='sawtooth';o.frequency.value=50;g.gain.value=.015;o.connect(g);g.connect(this.out);o.
+    s.buffer=this.noiseBuf;s.loop=true;b.type='lowpass';b.frequency.value=1200;g2.gain.value=.025;s.connect(b);b.connect(g2);g2.connect(this.out);s.this.hum=[o,s]},
   humOff(){if(this.hum){this.hum.forEach(n=>{try{n.stop()}catch(e){}});this.hum=null}},
 };
 function btnS(){const b=$('#snd');if(b)b.textContent=S.on?'♪ ON':'♪ OFF';if(b)b.classList.toggle('off',!S.on)}
@@ -166,7 +182,8 @@ async function start(){
   document.title=D.title||'TERMINAL';
   $('#devs').textContent=D.devSmall||'';$('#devb').innerHTML=D.dev||'';$('#fl').textContent=D.foot||'';$('#keys').textContent=L.keys;document.getElementById('hint').textContent=L.hint;
   setInterval(()=>{$('#clock').innerHTML=(D.clock||'')+'<br><span style="color:#8a3530">'+(D.net||'')+'</span>'},500);
-  document.querySelectorAll('#tabs span').forEach(s=>{const t=s.dataset.t;s.textContent=L[t];const n=(D[t]||[]).filter(x=>x.unread).length;if(n)s.innerHTML+=`<span class="n">${n}</span>`;
+  if(D.arch){$('#tabs').insertAdjacentHTML('afterbegin','<span data-t="net"></span>');NS=nsLoad();nsJSON=JSON.stringify(NS);}
+  document.querySelectorAll('#tabs span').forEach(s=>{const t=s.dataset.t;s.textContent=L[t];const n=(Array.isArray(D[t])?D[t]:[]).filter(x=>x.unread).length;if(n)s.innerHTML+=`<span class="n">${n}</span>`;
     s.onclick=()=>{S.tab();openTab(t)};s.onmouseenter=()=>S.hover()});
   $('#snd').onclick=()=>S.toggle();btnS();
   S.init();
@@ -185,23 +202,25 @@ async function boot(){const b=$('#boot');
   const g=b.querySelector('.big2');g.style.transition='opacity .2s';g.style.opacity=1;S.granted();await sleep(700);
   b.style.opacity=0;await sleep(500);b.remove();
   setInterval(()=>S.glitch(),7000);setTimeout(()=>S.glitch(),6510-((performance.now()-t0)%7000)>0?6510-((performance.now()-t0)%7000):0);
-  openTab(D.startTab||'files');
+  openTab(D.arch?'net':(D.startTab||'files'));
 }
 const t0=performance.now();
 async function openTab(t){cur=t;const my=++token;S.humOff();
   document.querySelectorAll('#tabs span').forEach(s=>s.classList.toggle('a',s.dataset.t===t));
+  if(t==='net'){netList();netPane();return}
   $('#lh').textContent=t==='files'?L.lf:L.lm;
   const box=$('#items');box.innerHTML='';const LST=D[t]||[];
-  LST.forEach((x,i)=>{const d=document.createElement('div');d.className='it'+(x.unread?' unread':'')+(x.lock?' lock':'');d.dataset.new=L.newm;
-    d.innerHTML=t==='files'?`<div class="t"><span class="ic">${x.ic||'▤'}</span>${x.name}</div><div class="m"><span>${x.kind||''}</span><span>${x.date||''}</span></div>`
-      :`<div class="t">${x.subj}</div><div class="m"><span>${L.from}: ${x.from}</span><span>${x.date||''}</span></div>`;
-    d.querySelector('.t').dataset.new=L.newm;d.onclick=()=>{S.open();show(i)};d.onmouseenter=()=>S.hover();box.appendChild(d);});
+  LST.forEach((x,i)=>{const d=document.createElement('div');const lk=isLocked(x,t);d.className='it'+(x.unread&&!lk?' unread':'')+(x.lock?' lock':'')+(lk?' nlock':'');d.dataset.new=L.newm;
+    d.innerHTML=t==='files'?`<div class="t"><span class="ic">${x.ic||'▤'}</span>${x.name}</div><div class="m"><span>${lk?NL.locked+' '+(x.floor+1):(x.kind||'')}</span><span>${x.date||''}</span></div>`
+      :`<div class="t">${x.subj}</div><div class="m"><span>${lk?NL.locked+' '+(A().msgsFloor+1):L.from+': '+x.from}</span><span>${x.date||''}</span></div>`;
+    d.onclick=()=>{S.open();show(i)};d.onmouseenter=()=>S.hover();box.appendChild(d);});
   const its=[...box.children];for(let i=0;i<its.length;i++){if(my!==token)return;its[i].classList.add('on');S.row();await sleep(90)}
   if(LST.length)show(0);else{$('#ph').innerHTML='';$('#pb').innerHTML=''}
 }
 addEventListener('keydown',e=>{if(/^[rRкК]$/.test(e.key))location.reload();if(/^[mMьЬ]$/.test(e.key))S.toggle();if(!D)return;
-  const n=(D[cur]||[]).length;if(!n)return;if(e.key==='ArrowDown'){S.open();show((sel+1)%n)}if(e.key==='ArrowUp'){S.open();show((sel+n-1)%n)}
-  if(e.key==='ArrowRight'||e.key==='ArrowLeft'){S.tab();openTab(cur==='files'?'msgs':'files')}});
+  if(e.target&&e.target.tagName==='INPUT')return;
+  const n=(D[cur]||[]).length;if(cur==='net'){if(e.key==='ArrowLeft'||e.key==='ArrowRight'){}else return}else if(!n)return;if(e.key==='ArrowDown'){S.open();show((sel+1)%n)}if(e.key==='ArrowUp'){S.open();show((sel+n-1)%n)}
+  if(e.key==='ArrowRight'||e.key==='ArrowLeft'){const tb=[...document.querySelectorAll('#tabs span[data-t]')].map(s=>s.dataset.t),k=tb.indexOf(cur);S.tab();openTab(tb[(k+(e.key==='ArrowRight'?1:tb.length-1))%tb.length])}});
 
 async function type(el,html,speed){
   const tmp=document.createElement('div');tmp.innerHTML=html;el.innerHTML='';const my=token;
@@ -211,7 +230,11 @@ async function type(el,html,speed){
     else{const c=n.cloneNode(false);dst.appendChild(c);await walk(n,c)}}}
   await walk(tmp,el);
 }
-async function show(i){const my=++token;sel=i;S.humOff();const x=D[cur][i];x.unread=false;
+async function show(i){const my=++token;sel=i;S.humOff();const x=D[cur][i];
+  if(isLocked(x,cur)){[...$('#items').children].forEach((d,k)=>d.classList.toggle('sel',k===i));const fl=cur==='msgs'?A().msgsFloor:x.floor;
+    $('#ph').innerHTML=`<div class="t">${cur==='files'?x.name.replace(/./g,(c,j)=>j%3?c:'█'):'█████ ███'}</div><div class="m">${NL.locked} ${fl+1}</div>`;
+    $('#pb').innerHTML=`<div class="locked" style="color:var(--ln)"><div>⛔ ${NL.closed}</div><div class="d" style="font-size:18px">${NL.closedT} ${fl+1} · ${(A().floors[fl]||{}).name||''}</div></div>`;S.tone(160,.25,{type:'sawtooth',vol:.07,f2:80});return}
+  x.unread=false;
   [...$('#items').children].forEach((d,k)=>{d.classList.toggle('sel',k===i);if(k===i)d.classList.remove('unread')});
   const ph=$('#ph'),pb=$('#pb');pb.innerHTML='';
   ph.innerHTML=cur==='files'?`<div class="t">${x.name}</div><div class="m">${L.type}: <b>${x.kind||'—'}</b> · ${L.mod}: <b>${x.date||'—'}</b>${x.size?` · ${L.size}: <b>${x.size}</b>`:''}</div>`
@@ -254,5 +277,91 @@ function camLoop(cv,cam,my){const g=cv.getContext('2d');const W=cv.width,H=cv.he
     g.fillStyle='#5ef6ff';g.fillText(cam.tag||'',30,H-24);
     requestAnimationFrame(fr)})();
 }
+
+
+/* ---------------- NET-архитектура (Cyberpunk RED): этажи, проверки, Black ICE ---------------- */
+const NL=EN?{net:'NET',arch:'NET ARCHITECTURE',floor:'FLOOR',iface:'INTERFACE',acts:'NET ACTIONS / TURN',jin:'JACK IN',jout:'JACK OUT',path:'PATHFINDER',down:'GO DOWN ▼',
+  roll:'ROLL',own:'or your result',ok:'SUCCESS',fail:'FAIL',crit:'CRIT',fumble:'FUMBLE',done:'BREACHED',icea:'ACTIVE',iced:'DEREZZED',slid:'SLIPPED PAST',locked:'LOCKED · FLOOR',
+  closed:'ACCESS DENIED',closedT:'Clear floor',reset:'RESET RUN',here:'YOU ARE HERE',out:'NOT JACKED IN',unk:'???',derez:'DEREZZED',slide:'SLIDE',
+  pwd:'PASSWORD',file:'FILE',ctrl:'CONTROL NODE',ice:'BLACK ICE',empty:'EMPTY',log:'// RUN LOG',
+  rpwd:'Backdoor: Interface + 1d10 ≥ DV opens the floor. Fail — try again, it costs a NET Action.',
+  rfile:'Eye-Dee: Interface + 1d10 ≥ DV — the file is yours.',
+  rctrl:'Control: Interface + 1d10 ≥ DV — you control the device.',
+  rice:'Black ICE goes by initiative (SPD + 1d10). Attack: Zap or an attacker program (Interface + 1d10) vs ICE DEF + 1d10, damage to REZ. Slide: Interface + 1d10 vs ICE PER + 1d10 to slip past.',
+  rpath:'Pathfinder: Interface + 1d10 ≥ architecture DV reveals the map.',
+  rout:'Jacking out is safe with no active Black ICE on you. Unsafe jack out: every active Black ICE gets its effect on you.'}
+ :{net:'СЕТЬ',arch:'NET-АРХИТЕКТУРА',floor:'УРОВЕНЬ',iface:'ИНТЕРФЕЙС',acts:'NET-ДЕЙСТВИЙ ЗА ХОД',jin:'ПОДКЛЮЧИТЬСЯ',jout:'ОТКЛЮЧИТЬСЯ',path:'PATHFINDER',down:'СПУСТИТЬСЯ ▼',
+  roll:'БРОСОК',own:'или свой результат',ok:'УСПЕХ',fail:'ПРОВАЛ',crit:'КРИТ',fumble:'ПРОВАЛ НА 1',done:'ВЗЛОМАНО',icea:'АКТИВЕН',iced:'ДЕРЕЗНУТ',slid:'ПРОСКОЧИЛ',locked:'ЗАКРЫТО · УР.',
+  closed:'ДОСТУП ЗАКРЫТ',closedT:'Пройди уровень',reset:'СБРОС ЗАБЕГА',here:'ТЫ ЗДЕСЬ',out:'НЕ ПОДКЛЮЧЁН',unk:'???',derez:'ДЕРЕЗНУТЬ',slide:'SLIDE',
+  pwd:'ПАРОЛЬ',file:'ФАЙЛ',ctrl:'УЗЕЛ УПРАВЛЕНИЯ',ice:'BLACK ICE',empty:'ПУСТО',log:'// ЖУРНАЛ ЗАБЕГА',
+  rpwd:'Backdoor: Интерфейс + 1d10 ≥ DV — уровень открыт. Провал — можно снова, но это ещё одно NET-действие.',
+  rfile:'Eye-Dee: Интерфейс + 1d10 ≥ DV — файл твой.',
+  rctrl:'Control: Интерфейс + 1d10 ≥ DV — устройство под твоим управлением.',
+  rice:'Black ICE ходит по инициативе (SPD + 1d10). Атака: Zap или боевая программа (Интерфейс + 1d10) против DEF + 1d10 льда, урон — в REZ. Slide: Интерфейс + 1d10 против PER + 1d10 льда — проскочить мимо.',
+  rpath:'Pathfinder: Интерфейс + 1d10 ≥ DV архитектуры — видна вся карта.',
+  rout:'Выход безопасен, если на тебе нет активного Black ICE. Небезопасный выход — каждый активный лёд применяет к тебе свой эффект.'};
+L.net=NL.net;
+const TYPES={pwd:{ic:'⌧',n:NL.pwd,act:'BACKDOOR',r:NL.rpwd,block:true},file:{ic:'▤',n:NL.file,act:'EYE-DEE',r:NL.rfile},ctrl:{ic:'⚙',n:NL.ctrl,act:'CONTROL',r:NL.rctrl},ice:{ic:'☠',n:NL.ice,r:NL.rice,block:true},empty:{ic:'·',n:NL.empty}};
+const A=()=>D.arch;
+let NS={pos:-1,done:{},map:false,log:[]},nsJSON='',fsel=0;
+const tid=()=>new URLSearchParams(location.search).get('id')||('local-'+(D.title||''));
+function nsLoad(){let s=null;try{if(P&&P.NightCityMap?.termState)s=P.NightCityMap.termState(tid())}catch(e){}
+  if(!s){try{s=JSON.parse(localStorage.getItem('ncm-net-'+tid())||'null')}catch(e){}}
+  return s||{pos:-1,done:{},map:false,log:[]}}
+function nsSave(){nsJSON=JSON.stringify(NS);try{localStorage.setItem('ncm-net-'+tid(),nsJSON)}catch(e){}
+  try{if(P&&P.NightCityMap?.termSetState)P.NightCityMap.termSetState(tid(),NS)}catch(e){}}
+function logN(t){NS.log.push(t);NS.log=NS.log.slice(-40);}
+const ifc=()=>{try{return Number(localStorage.getItem('ncm-iface')||4)}catch(e){return 4}};
+const actsFor=i=>i>=10?5:i>=7?4:i>=4?3:2;
+const fDone=i=>!!NS.done[i];
+function isLocked(x,t){if(!A())return false;const fl=t==='msgs'?A().msgsFloor:x.floor;return fl!=null&&!fDone(fl)}
+function visible(i){return NS.map||i<=NS.pos||fDone(i)}
+function d10(){let r=1+Math.floor(Math.random()*10),note='';if(r===10){const e=1+Math.floor(Math.random()*10);r+=e;note=NL.crit+' +'+e}else if(r===1){const e=1+Math.floor(Math.random()*10);r-=e;note=NL.fumble+' −'+e}return[r,note]}
+
+function netList(){const box=$('#items');box.innerHTML='';$('#lh').textContent='// '+NL.arch;
+  A().floors.forEach((f,i)=>{const T=TYPES[f.type]||TYPES.empty,v=visible(i),d=document.createElement('div');
+    let st=fDone(i)?(f.type==='ice'?(NS.done[i]==='slid'?NL.slid:NL.iced):NL.done):(i===NS.pos&&f.type==='ice'?NL.icea:'');
+    d.className='it on fl'+(i===NS.pos?' here':'')+(fDone(i)?' ok':'')+(f.type==='ice'&&v&&!fDone(i)?' ice':'')+(i===fsel?' sel':'');
+    d.innerHTML=`<div class="t"><span class="ic">${v?T.ic:'?'}</span>${NL.floor} ${i+1} · ${v?(f.name||T.n):NL.unk}</div><div class="m"><span>${v&&f.dv?'DV '+f.dv:''}${i===NS.pos?' · '+NL.here:''}</span><span>${st}</span></div>`;
+    d.onclick=()=>{S.open();fsel=i;netList();netPane()};d.onmouseenter=()=>S.hover();box.appendChild(d)});
+}
+function netPane(){const a=A(),f=a.floors[fsel],T=TYPES[f.type]||TYPES.empty,v=visible(fsel),iv=ifc();
+  $('#ph').innerHTML=`<div class="t">${NL.arch} · ${a.tier||''} · DV ${a.dv}</div><div class="m">${NL.floor}: <b>${a.floors.length}</b> · ${NL.iface}: <b><input id="ifc" type="number" min="1" max="10" value="${iv}"></b> · ${NL.acts}: <b id="acts">${actsFor(iv)}</b> · <b>${NS.pos<0?NL.out:NL.floor+' '+(NS.pos+1)}</b></div>`;
+  $('#ifc').onchange=e=>{try{localStorage.setItem('ncm-iface',e.target.value)}catch(_){}$('#acts').textContent=actsFor(Number(e.target.value))};
+  const pb=$('#pb');
+  let h=`<div class="nbar">${NS.pos<0?`<button data-n="jin">${NL.jin}</button>`:`<button data-n="jout">${NL.jout}</button>`}
+    <button data-n="path" ${NS.pos<0||NS.map?'disabled':''}>${NL.path} · DV ${a.dv}</button>
+    ${NS.pos>=0&&NS.pos<a.floors.length-1&&!(TYPES[a.floors[NS.pos].type]?.block&&!fDone(NS.pos))?`<button data-n="down" class="hot">${NL.down}</button>`:''}
+    <button data-n="reset" class="dim">${NL.reset}</button></div>`;
+  h+=`<div class="fcard${f.type==='ice'&&v?' ice':''}"><div class="fh"><span class="big">${v?T.ic+' '+(f.name||T.n):NL.floor+' '+(fsel+1)+' · '+NL.unk}</span>${v&&f.dv?`<span class="dv">DV ${f.dv}</span>`:''}</div>`;
+  if(v){if(f.desc)h+=`<div class="ln">${f.desc}</div>`;
+    if(f.type==='ice')h+=`<div class="ice-st">${['PER','SPD','ATK','DEF','REZ'].map(k=>`<div><small>${k}</small><b>${f[k.toLowerCase()]??'—'}</b></div>`).join('')}</div><div class="ln y">${f.effect||''}</div>`;
+    if(T.r)h+=`<div class="ln d">${T.r}</div>`;
+    const here=fsel===NS.pos,can=here&&!fDone(fsel);
+    if(can&&T.act)h+=`<div class="rollr"><button data-n="act" class="hot">${T.act} · ${NL.roll}</button><span class="d">${NL.own}</span><input id="own" type="number"><button data-n="own">OK</button></div>`;
+    if(can&&f.type==='ice')h+=`<div class="rollr"><button data-n="derez" class="hot">${NL.derez}</button><button data-n="slide">${NL.slide} · ${NL.roll}</button><span class="d">vs PER ${f.per??'?'} + 1d10</span></div>`;
+    if(fDone(fsel)&&f.reveal)h+=`<div class="ln c">${f.reveal}</div>`;
+  }
+  h+=`</div><div id="rres"></div><div class="nlog"><div class="d">${NL.log}</div>${NS.log.slice(-7).map(l=>`<div>${l}</div>`).join('')}</div>`;
+  pb.innerHTML=h;
+  pb.querySelectorAll('button[data-n]').forEach(b=>{b.onmouseenter=()=>S.hover();b.onclick=()=>netAct(b.dataset.n)});
+}
+function showRoll(label,r,note,dv,ok){$('#rres').innerHTML=`<div class="rres ${ok?'okk':'bad'}"><span>${label}: ${NL.iface} ${ifc()} + d10 ${note?`<em>(${note})</em>`:''} = <b>${r}</b> vs ${dv}</span><b class="v">${ok?NL.ok:NL.fail}</b></div>`;
+  if(ok)S.unlocked();else S.tone(180,.3,{type:'sawtooth',vol:.08,f2:90})}
+async function netAct(n){const a=A(),f=a.floors[fsel],T=TYPES[f.type]||TYPES.empty;S.open();
+  if(n==='jin'){NS.pos=0;logN(`▶ ${NL.jin}`);S.granted();fsel=0}
+  if(n==='jout'){const hot=f&&NS.pos>=0&&a.floors[NS.pos].type==='ice'&&!fDone(NS.pos);logN(`◀ ${NL.jout}${hot?' — '+a.floors[NS.pos].name+': '+(a.floors[NS.pos].effect||''):''}`);NS.pos=-1;if(hot)S.alarm();else S.tab()}
+  if(n==='down'){NS.pos++;fsel=NS.pos;const nf=a.floors[NS.pos];logN(`▼ ${NL.floor} ${NS.pos+1}: ${nf.name||TYPES[nf.type].n}`);if(nf.type==='ice'){S.alarm();S.glitch()}else S.tab()}
+  if(n==='reset'){NS={pos:-1,done:{},map:false,log:[]};fsel=0}
+  if(n==='path'){const [d,note]=d10(),r=ifc()+d,ok=r>=a.dv;showRoll('PATHFINDER',r,note,a.dv,ok);if(ok)NS.map=true;logN(`PATHFINDER ${r} vs ${a.dv} — ${ok?NL.ok:NL.fail}`);nsSave();netList();setTimeout(netPane,1600);return}
+  if(n==='act'||n==='own'){let r,note='';if(n==='own'){r=Number($('#own').value);if(!r&&r!==0)return}else{const [d,nt]=d10();r=ifc()+d;note=nt}
+    const ok=r>=f.dv;showRoll(T.act,r,note,f.dv,ok);logN(`${NL.floor} ${fsel+1} · ${T.act} ${r} vs ${f.dv} — ${ok?NL.ok:NL.fail}`);if(ok)NS.done[fsel]=1;nsSave();netList();setTimeout(netPane,1600);updLocks();return}
+  if(n==='slide'){const [d,note]=d10(),r=ifc()+d,ip=1+Math.floor(Math.random()*10),dv=(f.per||0)+ip,ok=r>dv;showRoll('SLIDE',r,note,`PER ${f.per}+${ip} = ${dv}`,ok);logN(`SLIDE ${r} vs ${dv} — ${ok?NL.ok:NL.fail}`);if(ok)NS.done[fsel]='slid';nsSave();netList();setTimeout(netPane,1600);return}
+  if(n==='derez'){NS.done[fsel]=1;logN(`☠ ${f.name} — ${NL.iced}`);S.glitch()}
+  nsSave();netList();netPane();updLocks();
+}
+function updLocks(){} // списки файлов/сообщений перерисуются при переключении вкладки
+setInterval(()=>{if(!D||!A())return;const s=nsLoad(),j=JSON.stringify(s);if(j!==nsJSON&&j!==JSON.stringify(NS)){NS=s;nsJSON=j;if(cur==='net'){netList();if(!document.activeElement||document.activeElement.tagName!=='INPUT')netPane()}}},800);
+
 start();
 </script></body></html>

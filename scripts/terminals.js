@@ -22,7 +22,14 @@ Hooks.once("init", () => {
     scope: "world", config: false, type: Array, default: [],
     onChange: () => { try { ui.controls?.initialize?.(); } catch (e) { /* */ } Manager.refresh(); },
   });
+  // ход взлома NET-архитектуры по каждому терминалу — общий для всех (пишет мастер)
+  game.settings.register(MID, "termNet", { scope: "world", config: false, type: Object, default: {} });
 });
+const netAll = () => { try { return game.settings.get(MID, "termNet") ?? {}; } catch (e) { return {}; } };
+async function netSet(id, st) {
+  if (game.user === game.users.activeGM) { const all = foundry.utils.deepClone(netAll()); all[id] = st; await game.settings.set(MID, "termNet", all); }
+  else game.socket.emit(SOCKET, { action: "term-net", id, st });
+}
 
 /* ---------------------------------------------------------------- окно терминала */
 
@@ -110,7 +117,7 @@ const Manager = {
       if (a === "export") saveDataToFile(JSON.stringify(t.data, null, 1), "application/json", `${t.name || "terminal"}.json`);
       if (a === "del") {
         const ok = await Dialog.confirm({ title: T("Удалить"), content: `<p>${T("Удалить терминал")} «${esc(t.name)}»?</p>` });
-        if (ok) { await saveTerms(list.filter(x => x.id !== id)); game.socket.emit(SOCKET, { action: "term-close", id }); closeTerms(id); }
+        if (ok) { await saveTerms(list.filter(x => x.id !== id)); const all = foundry.utils.deepClone(netAll()); delete all[id]; await game.settings.set(MID, "termNet", all); game.socket.emit(SOCKET, { action: "term-close", id }); closeTerms(id); }
       }
     }));
     file?.addEventListener("change", async () => {
@@ -140,10 +147,13 @@ Hooks.once("ready", () => {
       tryOpen();
     }
     if (d.action === "term-close" && !isGM()) closeTerms(d.id);
+    if (d.action === "term-net" && game.user === game.users.activeGM) netSet(d.id, d.st);
   });
   const api = game.modules.get(MID).api ?? (game.modules.get(MID).api = {});
   Object.assign(api, {
     termData: (id) => termById(id)?.data ?? null,
+    termState: (id) => foundry.utils.deepClone(netAll()[id] ?? null),
+    termSetState: (id, st) => netSet(id, st),
     terminals: () => Manager.toggle(),
     openTerminal: (id) => openTerm(id),
     lang: () => lang(),
