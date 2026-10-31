@@ -87,6 +87,10 @@ Hooks.once("init", () => {
   game.settings.register(MID, "callSound", {
     name: "NCM.Settings.CallName", hint: "NCM.Settings.CallHint", scope: "world", config: true, type: String, filePicker: "audio", default: ""
   });
+  game.settings.register(MID, "ncartFolder", {
+    name: "NCM.Settings.NcartName", hint: "NCM.Settings.NcartHint", scope: "world", config: true, type: String, filePicker: "folder", default: "", onChange: () => Ncart.reload()
+  });
+  game.settings.register(MID, "ncartFit", { scope: "world", config: false, type: Object, default: { x: 0, y: 0, s: 1, sy: 1 }, onChange: () => Ncart.sync() });
   game.settings.register(MID, "autoPlaced", { scope: "world", config: false, type: Boolean, default: false });
   game.settings.register(MID, "scAsked", { scope: "world", config: false, type: Boolean, default: false });
   game.settings.register(MID, "notify", { name: "NCM.Settings.NotifyName", scope: "world", config: true, type: Boolean, default: true });
@@ -312,6 +316,111 @@ function zoneAt(x, y) {
 
 /** Ночью город загорается: фонари вдоль улиц (сетка дорог), окна и неон по районам, костры в боевых зонах.
  *  Огни одинаковые у всех (фиксированное зерно), зажигаются волной по районам. */
+/* ================================================================ NCART: линии метро поверх карты
+   Картинки линий НЕ входят в модуль: мастер указывает папку со своими файлами (по одной линии на файл,
+   того же размера и кадра, что и картинка карты). Белый фон превращается в прозрачный. */
+const NCART_MAX = 3000;
+const Ncart = {
+  files: null, cache: new Map(), loading: null, boxOn: false,
+  folder() { try { return (game.settings.get(MID, "ncartFolder") || "").trim(); } catch (e) { return ""; } },
+  fit() { try { return { x: 0, y: 0, s: 1, sy: 1, ...(game.settings.get(MID, "ncartFit") ?? {}) }; } catch (e) { return { x: 0, y: 0, s: 1, sy: 1 }; } },
+  on() { return new Set(state().ncart?.on ?? []); },
+  reload() { this.files = null; this.cache.clear(); this.loading = null; UI.el && (UI.close(), UI.open()); },
+  nameOf(f) { return decodeURIComponent(f.split("/").pop()).replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim(); },
+  async list() {
+    if (this.files) return this.files;
+    const dir = this.folder(); if (!dir) return (this.files = []);
+    this.loading ??= (async () => {
+      try {
+        const FP = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker?.implementation ?? globalThis.FilePicker;
+        const r = await FP.browse("data", dir.replace(/\/+$/, ""));
+        this.files = (r?.files ?? []).filter(f => /\.(png|webp|jpe?g|avif)$/i.test(f)).sort();
+      } catch (e) { console.error(MID, e); ui.notifications.warn(`NCART: ${T("не открыть папку")} ${dir}`); this.files = []; }
+      return this.files;
+    })();
+    return this.loading;
+  },
+  /** Загрузка линии: уменьшаем, белый фон → прозрачный, определяем цвет линии для легенды. */
+  load(f) {
+    if (this.cache.has(f)) return this.cache.get(f);
+    const pr = new Promise((res) => {
+      const img = new Image(); img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const k = Math.min(1, NCART_MAX / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        const ctx = c.getContext("2d", { willReadFrequently: true }); ctx.drawImage(img, 0, 0, w, h);
+        let col = [255, 210, 0];
+        try {
+          const id = ctx.getImageData(0, 0, w, h), d = id.data; let sr = 0, sg = 0, sb = 0, n = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            const r = d[i], g = d[i + 1], b = d[i + 2], a = d[i + 3];
+            if (a < 255) continue;                                   // уже с прозрачностью — не трогаем
+            const m = Math.min(r, g, b), al = 1 - m / 255;           // «цвет в альфу» по белому
+            if (al <= 0.02) { d[i + 3] = 0; continue; }
+            d[i] = Math.round((r - m) / al); d[i + 1] = Math.round((g - m) / al); d[i + 2] = Math.round((b - m) / al); d[i + 3] = Math.round(al * 255);
+            const mx = Math.max(r, g, b); if (mx - m > 60) { sr += r; sg += g; sb += b; n++; }
+          }
+          ctx.putImageData(id, 0, 0);
+          if (n) col = [sr / n, sg / n, sb / n].map(Math.round);
+        } catch (e) { console.warn(MID, "NCART: картинка без доступа к пикселям", e); }
+        res({ f, name: this.nameOf(f), canvas: c, color: `rgb(${col.join(",")})` });
+      };
+      img.onerror = () => res(null);
+      img.src = encodeURI(decodeURI(f));
+    });
+    this.cache.set(f, pr); return pr;
+  },
+  async sync() {
+    const host = UI.el?.querySelector(".ncm-ncart"); if (!host) return;
+    const files = await this.list(), on = this.on(), fit = this.fit();
+    host.style.transform = `translate(${fit.x}%, ${fit.y}%) scale(${fit.s}, ${fit.s * (fit.sy ?? 1)})`;
+    const want = files.filter(f => on.has(f));
+    for (const el of [...host.children]) if (!want.includes(el.dataset.f)) el.remove();
+    for (const f of want) {
+      if (host.querySelector(`[data-f="${CSS.escape(f)}"]`)) continue;
+      const L = await this.load(f); if (!L || !this.on().has(f)) continue;
+      const c = document.createElement("canvas"); c.width = L.canvas.width; c.height = L.canvas.height;
+      c.getContext("2d").drawImage(L.canvas, 0, 0); c.dataset.f = f; c.className = "ncm-ncart-line"; c.style.setProperty("--lc", L.color);
+      host.appendChild(c);
+    }
+    if (this.boxOn) this.renderBox();
+  },
+  toggleBox() { this.boxOn = !this.boxOn; this.renderBox(); },
+  async renderBox() {
+    const box = UI.el?.querySelector(".ncm-ncart-box"); if (!box) return;
+    box.hidden = !this.boxOn; if (!this.boxOn) return;
+    if (!box._iso) { box._iso = true; for (const ev of ["pointerdown", "mousedown", "wheel", "dblclick"]) box.addEventListener(ev, e => e.stopPropagation()); }
+    const files = await this.list(), on = this.on(), gm = isGM(), fit = this.fit();
+    const rows = await Promise.all(files.map(async f => ({ f, L: await this.load(f) })));
+    const shown = gm ? rows : rows.filter(r => on.has(r.f));
+    box.innerHTML = `<div class="ncm-ncart-h"><i class="fas fa-train-subway"></i> NCART<button data-act="ncart" title="${T("Закрыть")}"><i class="fas fa-xmark"></i></button></div>
+      ${!files.length ? `<p class="ncm-muted">${T("В папке нет картинок линий.")}</p>` : ""}
+      ${shown.map(({ f, L }) => `<label class="ncm-ncart-row"><input type="checkbox" data-ncart="${esc(f)}" ${on.has(f) ? "checked" : ""} ${gm ? "" : "disabled"}><i style="background:${L?.color ?? "#888"}"></i><span>${esc(L?.name ?? this.nameOf(f))}</span></label>`).join("")}
+      ${!gm && !shown.length ? `<p class="ncm-muted">${T("Мастер пока не включил линии.")}</p>` : ""}
+      ${gm && files.length ? `<div class="ncm-seg"><button data-act="ncart-all" data-on="1">${T("Все")}</button><button data-act="ncart-all" data-on="0">${T("Ни одной")}</button></div>
+      <details class="ncm-ncart-fit"><summary>${T("Подгонка к карте")}</summary>
+        <label>X <input type="range" data-fit="x" min="-20" max="20" step="0.1" value="${fit.x}"></label>
+        <label>Y <input type="range" data-fit="y" min="-20" max="20" step="0.1" value="${fit.y}"></label>
+        <label>${T("Масштаб")} <input type="range" data-fit="s" min="0.6" max="1.6" step="0.005" value="${fit.s}"></label>
+        <label>${T("Высота")} <input type="range" data-fit="sy" min="0.6" max="1.6" step="0.005" value="${fit.sy ?? 1}"></label>
+        <button data-act="ncart-fit-reset">${T("Сбросить подгонку")}</button></details>` : ""}`;
+    box.querySelectorAll("[data-ncart]").forEach(i => i.addEventListener("change", () => {
+      const f = i.dataset.ncart;
+      save(s => { const set = new Set(s.ncart?.on ?? []); i.checked ? set.add(f) : set.delete(f); s.ncart = { ...(s.ncart ?? {}), on: [...set] }; });
+    }));
+    box.querySelectorAll("[data-fit]").forEach(r => {
+      r.addEventListener("input", () => {                      // живой предпросмотр без записи
+        const host = UI.el?.querySelector(".ncm-ncart"); const v = { ...this.fit(), [r.dataset.fit]: +r.value };
+        box.querySelectorAll("[data-fit]").forEach(q => { v[q.dataset.fit] = +q.value; });
+        if (host) host.style.transform = `translate(${v.x}%, ${v.y}%) scale(${v.s}, ${v.s * v.sy})`;
+      });
+      r.addEventListener("change", () => { const v = {}; box.querySelectorAll("[data-fit]").forEach(q => { v[q.dataset.fit] = +q.value; }); game.settings.set(MID, "ncartFit", v); });
+    });
+  },
+  async setAll(onAll) { const files = await this.list(); return save(s => { s.ncart = { ...(s.ncart ?? {}), on: onAll ? [...files] : [] }; }); },
+};
+
 const Lights = {
   pts: null, key: "", on: false, anim: 0, sprites: null,
   rand(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; },
@@ -580,7 +689,7 @@ const UI = {
   rebuild() { if (this.el) { this.el.remove(); this.el = null; this.build(); } },
   refresh() {
     if (applyRoadEdits() && this.el) { this.path = []; if (this.route.length > 1) this.recalc(); this.renderRoads(); }
-    if (this.el) { this.renderStreets(); this.renderLabels(); this.renderMarkers(); this.renderSvg(); this.renderPanel(); this.renderQuestList(); }
+    if (this.el) { this.renderStreets(); this.renderLabels(); this.renderMarkers(); this.renderSvg(); this.renderPanel(); this.renderQuestList(); Ncart.sync(); }
   },
   /** Сетка дорог поверх карты (только в режиме «Дороги»). */
   renderRoads() {
@@ -637,6 +746,7 @@ const UI = {
           <button data-act="quests" title="${T("Список заказов")}"><i class="fas fa-scroll"></i> ${T("Заказы")}</button>
           <button data-act="mode-party" title="${T("Поставить метку «Мы здесь» (вся группа)")}"><i class="fas fa-users"></i> ${T("Мы здесь")}</button>
           <button data-act="mode-me" title="${T("Поставить свою метку «Я здесь» — если группа разделилась")}"><i class="fas fa-user"></i> ${T("Я здесь")}</button>
+          ${Ncart.folder() ? `<button data-act="ncart" title="${T("Линии NCART: метро и надземка")}"><i class="fas fa-train-subway"></i> NCART</button>` : ""}
           ${agentOn() ? `<button data-act="agent" title="${T("Агент: заказы и сообщения (Shift+A)")}"><i class="fas fa-mobile-screen"></i> ${T("Агент")}<span class="ncm-agent-badge" hidden></span></button>` : ""}
           ${isGM() ? `<button data-act="gen-gigs" title="${T("Разбросать случайные заказы по карте")}"><i class="fas fa-circle-question"></i> ${T("Заказы на карту")}</button>
           <button data-act="gen-shops" title="${T("Расставить случайные магазины по городу")}"><i class="fas fa-cart-shopping"></i> ${T("Магазины")}</button>
@@ -660,6 +770,7 @@ const UI = {
           <canvas class="ncm-lights ncm-bloom" aria-hidden="true"></canvas>
           <canvas class="ncm-lights ncm-main" aria-hidden="true"></canvas>
           <canvas class="ncm-lights ncm-flick" aria-hidden="true"></canvas>
+          <div class="ncm-ncart" aria-hidden="true"></div>
           <svg class="ncm-svg" viewBox="0 0 1000 ${Math.round(1000 * aspect)}" preserveAspectRatio="none"></svg>
           <div class="ncm-streets"></div>
           <canvas class="ncm-roads" hidden></canvas>
@@ -668,6 +779,7 @@ const UI = {
         </div>
         <div class="ncm-fx ncm-fx-${game.settings.get(MID, "redtime")}" aria-hidden="true"><div class="ncm-fx-line"></div></div>
         <div class="ncm-hint"></div>
+        <div class="ncm-ncart-box" hidden></div>
         <div class="ncm-zoom"><button data-act="to-party" title="${T("К метке «Мы здесь»")}"><i class="fas fa-crosshairs"></i></button><button data-act="zin">+</button><button data-act="zout">−</button><button data-act="fit" title="${T("Вся карта")}"><i class="fas fa-expand"></i></button></div>
       </div>
       <aside class="ncm-panel"></aside>
@@ -679,7 +791,7 @@ const UI = {
     this.world = el.querySelector(".ncm-world");
     this.vp = el.querySelector(".ncm-viewport");
     const img = el.querySelector(".ncm-img");
-    const ready = () => { this.fit(); this.renderStreets(); this.renderLabels(); this.renderMarkers(); this.renderSvg(); };
+    const ready = () => { this.fit(); this.renderStreets(); this.renderLabels(); this.renderMarkers(); this.renderSvg(); Ncart.sync(); };
     img.complete && img.naturalWidth ? ready() : img.addEventListener("load", ready, { once: true });
     img.addEventListener("error", () => ui.notifications.error(T("Карта Найт-Сити: не найден файл картинки. Укажите его в настройках модуля.")), { once: true });
     this.bind();
@@ -1514,6 +1626,9 @@ const UI = {
         this.sel = null; return save(s => { s.poi[id] = { ...(s.poi[id] ?? {}), removed: true }; });
       }
       case "places": return this.renderPlaces();
+      case "ncart": return Ncart.toggleBox();
+      case "ncart-all": return Ncart.setAll(b.dataset.on === "1");
+      case "ncart-fit-reset": return game.settings.set(MID, "ncartFit", { x: 0, y: 0, s: 1, sy: 1 });
       case "mode-roads": return this.setMode("roads");
       case "mode-arrange": return this.setMode("arrange");
       case "mode-geo": return this.setMode("geo");

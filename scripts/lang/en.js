@@ -1324,5 +1324,15 @@ export default {
  "Раздатки": "Handouts",
  "терминалов новых": "new terminals",
  "обновлено": "updated",
- "картинок в журнал": "images added to the journal"
+ "картинок в журнал": "images added to the journal",
+ "Линии NCART: метро и надземка": "NCART lines: metro and elevated rail",
+ "не открыть папку": "can't open folder",
+ "В папке нет картинок линий.": "No line images in the folder.",
+ "Мастер пока не включил линии.": "The GM hasn't turned on any lines yet.",
+ "Все": "All",
+ "Ни одной": "None",
+ "Подгонка к карте": "Fit to map",
+ "Масштаб": "Scale",
+ "Высота": "Height",
+ "Сбросить подгонку": "Reset fit"
 };

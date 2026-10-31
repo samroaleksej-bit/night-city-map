@@ -1,3 +1,15 @@
+## 0.27.0 — NCART lines
+
+- **NCART layer**: point the new setting **NCART lines folder** at a folder with your own line images (one line per file, same size and framing as your map image — white background is fine, it becomes transparent). A **NCART** button appears on the map: the GM ticks lines on and off for everyone, each line glows in its own colour and glows brighter at night.
+- **Fit to map**: X/Y offset, scale and height sliders in the NCART box, if your line images don't sit exactly on your map.
+- The images are not included in the module — you need your own copy of the source material. Thanks to Schism for the idea and for separating the lines.
+
+## 0.27.0 — линии NCART
+
+- **Слой NCART**: в новой настройке **«Папка с линиями NCART»** укажи папку со своими картинками линий (одна линия на файл, того же размера и кадра, что и картинка карты; белый фон можно — он станет прозрачным). На карте появится кнопка **NCART**: мастер включает и выключает линии для всех, каждая светится своим цветом, ночью ярче.
+- **Подгонка к карте**: ползунки сдвига, масштаба и высоты в окне NCART, если картинки линий не легли ровно на твою карту.
+- Картинки в модуль не входят — нужна своя копия исходного материала. Спасибо Schism за идею и разрезанные линии.
+
 ## 0.26.2 — fix
 
 - Night lights no longer go out and light up again every time you open a place or click something on the map.

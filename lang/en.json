@@ -30,7 +30,9 @@
       "RoadsName": "Road grid image",
       "RoadsHint": "Grid the routes follow: white streets, gray land, black water, same proportions as the map. Empty — the module's Night City 2045 grid. Small fixes can be painted on the map with the Roads button.",
       "LightsName": "City lights at night",
-      "LightsHint": "At night the map lights up: street lamps along the roads, windows and neon by district, fires in the combat zones. Turn off on a slow computer."
+      "LightsHint": "At night the map lights up: street lamps along the roads, windows and neon by district, fires in the combat zones. Turn off on a slow computer.",
+      "NcartName": "NCART lines folder",
+      "NcartHint": "Folder with your own NCART line images (one line per file, same size and framing as the map image; white background is fine). Images are not included in the module."
     },
     "Keys": {
       "Agent": "Agent (phone)",
