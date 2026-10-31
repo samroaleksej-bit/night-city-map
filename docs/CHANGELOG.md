@@ -1,3 +1,11 @@
+## 0.27.1
+
+- NCART: the folder is re-read if it came back empty (e.g. the folder was set while the map was open).
+
+## 0.27.1
+
+- NCART: папка перечитывается, если в первый раз пришла пустой (например, папку указали при открытой карте).
+
 ## 0.27.0 — NCART lines
 
 - **NCART layer**: point the new setting **NCART lines folder** at a folder with your own line images (one line per file, same size and framing as your map image — white background is fine, it becomes transparent). A **NCART** button appears on the map: the GM ticks lines on and off for everyone, each line glows in its own colour and glows brighter at night.

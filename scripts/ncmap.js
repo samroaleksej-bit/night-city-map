@@ -328,15 +328,16 @@ const Ncart = {
   reload() { this.files = null; this.cache.clear(); this.loading = null; UI.el && (UI.close(), UI.open()); },
   nameOf(f) { return decodeURIComponent(f.split("/").pop()).replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim(); },
   async list() {
-    if (this.files) return this.files;
-    const dir = this.folder(); if (!dir) return (this.files = []);
+    if (this.files?.length) return this.files;               // пустой результат не кэшируем — перечитаем папку
+    const dir = this.folder(); if (!dir) return [];
     this.loading ??= (async () => {
       try {
         const FP = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker?.implementation ?? globalThis.FilePicker;
         const r = await FP.browse("data", dir.replace(/\/+$/, ""));
-        this.files = (r?.files ?? []).filter(f => /\.(png|webp|jpe?g|avif)$/i.test(f)).sort();
+        this.files = (r?.files ?? []).filter(f => /\.(png|webp|jpe?g|avif)(\?.*)?$/i.test(decodeURIComponent(f))).sort();
+        console.log(MID, "NCART:", dir, "→", this.files.length, "files", r?.files);
       } catch (e) { console.error(MID, e); ui.notifications.warn(`NCART: ${T("не открыть папку")} ${dir}`); this.files = []; }
-      return this.files;
+      const out = this.files; this.loading = null; return out;
     })();
     return this.loading;
   },
@@ -2425,7 +2426,7 @@ Hooks.once("ready", () => {
     if (d.action === "dossier") return openDossier(d.id, { remote: true });
     if (d.action === "quest") { const q = state().quests.find(x => x.id === d.id); if (q) questToast(q); }
   });
-  game.modules.get(MID).api = { open: () => UI.open(), close: () => UI.close(), ui: UI, agent: () => agentOn() && Agent.toggle(), call: (o) => Call.start(o ?? {}) };
+  game.modules.get(MID).api = { open: () => UI.open(), close: () => UI.close(), ui: UI, agent: () => agentOn() && Agent.toggle(), call: (o) => Call.start(o ?? {}), ncart: Ncart };
   Agent.seen = new Set(state().messages.map(m => m.id));
   if (agentOn() && game.settings.get(MID, "agentAuto")) setTimeout(() => Agent.open(), 1200);
   // Первый запуск у мастера: город сразу с магазинами и Ночными рынками
