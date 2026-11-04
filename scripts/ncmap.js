@@ -15,6 +15,8 @@ const MID = "night-city-map";
 const SOCKET = `module.${MID}`;
 const ROOT = "ncm";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+/** Текст с абзацами: пустая строка — новый абзац, перенос строки — <br>. */
+const para = (s, cls = "") => { const t = String(s ?? "").replace(/\r/g, "").trim(); if (!t) return ""; return t.split(/\n\s*\n/).map(b => `<p${cls ? ` class="${cls}"` : ""}>${esc(b).replace(/\n/g, "<br>")}</p>`).join(""); };
 const isGM = () => !!game.user?.isGM;
 const rid = () => foundry.utils.randomID(10);
 const clone = (o) => foundry.utils.deepClone(o);
@@ -90,6 +92,7 @@ Hooks.once("init", () => {
   game.settings.register(MID, "ncartFolder", {
     name: "NCM.Settings.NcartName", hint: "NCM.Settings.NcartHint", scope: "world", config: true, type: String, filePicker: "folder", default: "", onChange: () => Ncart.reload()
   });
+  game.settings.register(MID, "ncartFiles", { scope: "world", config: false, type: Array, default: [], onChange: () => { if (!isGM()) { Ncart.files = null; Ncart.sync(); } } });
   game.settings.register(MID, "ncartFit", { scope: "world", config: false, type: Object, default: { x: 0, y: 0, s: 1, sy: 1 }, onChange: () => Ncart.sync() });
   game.settings.register(MID, "autoPlaced", { scope: "world", config: false, type: Boolean, default: false });
   game.settings.register(MID, "scAsked", { scope: "world", config: false, type: Boolean, default: false });
@@ -330,13 +333,30 @@ const Ncart = {
   async list() {
     if (this.files?.length) return this.files;               // пустой результат не кэшируем — перечитаем папку
     const dir = this.folder(); if (!dir) return [];
+    // Игрокам Foundry не даёт просматривать папки — они берут список, который сохранил мастер.
+    if (!isGM() || !game.user.can?.("FILES_BROWSE")) {
+      let saved = []; try { saved = game.settings.get(MID, "ncartFiles") ?? []; } catch (e) {}
+      this.files = saved.filter(f => typeof f === "string");
+      return this.files;
+    }
     this.loading ??= (async () => {
-      try {
-        const FP = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker?.implementation ?? globalThis.FilePicker;
-        const r = await FP.browse("data", dir.replace(/\/+$/, ""));
-        this.files = (r?.files ?? []).filter(f => /\.(png|webp|jpe?g|avif)(\?.*)?$/i.test(decodeURIComponent(f))).sort();
-        console.log(MID, "NCART:", dir, "→", this.files.length, "files", r?.files);
-      } catch (e) { console.error(MID, e); ui.notifications.warn(`NCART: ${T("не открыть папку")} ${dir}`); this.files = []; }
+      const FP = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker?.implementation ?? globalThis.FilePicker;
+      const clean = dir.replace(/\/+$/, "");
+      // источник берём из самого пути: data, public, s3, Forge — как его выбрал FilePicker
+      const tries = [];
+      try { const pr = FP.parse?.(clean); if (pr?.source) tries.push([pr.source, pr.target ?? clean, pr.bucket ? { bucket: pr.bucket } : {}]); } catch (e) {}
+      if (typeof ForgeVTT !== "undefined" && ForgeVTT.usingTheForge) tries.push(["forgevtt", clean, {}]);
+      tries.push(["data", clean, {}], ["public", clean, {}]);
+      let found = null, lastErr = null;
+      for (const [src, target, opt] of tries) {
+        try { const r = await FP.browse(src, target, opt); if (r) { found = r; console.log(MID, "NCART:", src, target, "→", r.files?.length ?? 0, "files"); break; } }
+        catch (e) { lastErr = e; }
+      }
+      if (!found) { console.error(MID, "NCART", lastErr); ui.notifications.warn(`NCART: ${T("не открыть папку")} ${dir}`); this.files = []; }
+      else {
+        this.files = (found.files ?? []).filter(f => /\.(png|webp|jpe?g|avif)(\?.*)?$/i.test(decodeURIComponent(f))).sort();
+        try { const old = game.settings.get(MID, "ncartFiles") ?? []; if (JSON.stringify(old) !== JSON.stringify(this.files)) await game.settings.set(MID, "ncartFiles", this.files); } catch (e) { console.warn(MID, e); }
+      }
       const out = this.files; this.loading = null; return out;
     })();
     return this.loading;
@@ -971,8 +991,8 @@ const UI = {
       </div>
       <div class="ncm-p-body">
         ${poiArt(p) ? `<button class="ncm-p-imgbtn" data-act="dossier" data-id="${p.id}" title="${T("Открыть досье")}"><img class="ncm-p-img" src="${esc(poiArt(p))}" alt="" onerror="this.parentElement.remove()"><span><i class="fas fa-expand"></i> ${T("ДОСЬЕ")}</span></button>` : ""}
-        <p>${esc(p.desc ?? "")}</p>
-        ${isGM() && p.notes ? `<div class="ncm-gm"><b>${T("Заметки мастера")}</b><p>${esc(p.notes)}</p></div>` : ""}
+        ${para(p.desc)}
+        ${isGM() && p.notes ? `<div class="ncm-gm"><b>${T("Заметки мастера")}</b>${para(p.notes)}</div>` : ""}
         ${qs.length ? `<h3><i class="fas fa-scroll"></i> ${T("Заказы")}</h3>${qs.map(qcard).join("")}` : ""}
         ${encBlock(p.x, p.y, d?.id)}
         ${isGM() && p.scene ? `<div class="ncm-p-acts ncm-scene-acts"><button data-act="scene-view" data-id="${p.id}"><i class="fas fa-map"></i> ${T("Открыть сцену")}</button><button data-act="scene-show" data-id="${p.id}"><i class="fas fa-users"></i> ${T("Перенести игроков")}</button></div>` : ""}
@@ -1059,7 +1079,7 @@ const UI = {
         <div class="ncm-msecs">${(m.cats ?? []).map(k => `<span>${esc(MARKET_CATS[k]?.ru ?? k)}</span>`).join("")}</div>
         ${gm ? `<h3><i class="fas fa-user-check"></i> ${T("Кого пускают")}</h3><div class="ncm-mpl">${players.map(u => { const r = repOf(u), on = access.includes(u.id);
           return `<button data-act="market-grant" data-id="${m.id}" data-u="${u.id}" class="${on ? "on" : ""}" title="${on ? T("Закрыть доступ") : `${T("Фиксер сводит — придёт сообщение от")} ${esc(m.fixer ?? T("фиксера"))}`}"><i class="fas fa-${on ? "check" : "plus"}"></i> ${esc(u.character?.name ?? u.name)} <small class="${r >= need ? "ok" : "no"}">${T("реп.")} ${r}</small></button>`; }).join("") || `<p class="ncm-muted">${T("Нет игроков.")}</p>`}</div>
-          ${m.notes ? `<p class="ncm-muted">${esc(m.notes)}</p>` : ""}` : ""}
+          ${m.notes ? para(m.notes, "ncm-muted") : ""}` : ""}
         ${lock}
         ${Object.keys(byCat).length || (can && (open || gm)) ? `<label class="ncm-shopsearch"><i class="fas fa-magnifying-glass"></i><input type="search" data-shopq placeholder="${T("Найти товар…")}" value="${esc(this.shopQuery ?? "")}"></label>
         <div class="ncm-mk">${T("Цены:")} ${mk === 1 ? T("по книге") : mk > 1 ? `+${Math.round((mk - 1) * 100)}${T("% к книге")}` : `−${Math.round((1 - mk) * 100)}${T("% к книге")}`}</div>` : ""}
@@ -1155,7 +1175,7 @@ const UI = {
         <div class="ncm-danger">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= d.danger ? "on" : ""}"></i>`).join("")}</div>
         <button class="ncm-p-x" data-act="unsel"><i class="fas fa-xmark"></i></button>
       </div>
-      <div class="ncm-p-body"><p>${esc(d.desc)}</p>
+      <div class="ncm-p-body">${para(d.desc)}
         ${encBlock(d.x, d.y, d.id)}
         ${inside.length ? `<h3>${T("Места района")}</h3><div class="ncm-list">${inside.map(p => `<button data-poi="${p.id}" style="--c:${(CATS[p.cat] ?? CATS.custom).color}"><span>${p.n ?? "•"}</span>${esc(p.name)}</button>`).join("")}</div>` : ""}
       </div>`;
@@ -1804,7 +1824,7 @@ function encBlock(x, y, distId) {
 function encCard(e) {
   return `<div class="ncm-enc-card t-${e.threat}">
     <div class="ncm-enc-top"><span>${e.own ? `<i class="fas fa-pen-nib"></i> ${T("своя встреча")}` : `${T("к10:")} ${e.roll}`} · ${T(THREAT_RU[e.threat])} · ${e.night ? T("ночь") : T("день")}</span></div>
-    <b>${esc(e.title)}</b><p>${esc(e.text)}</p>
+    <b>${esc(e.title)}</b>${para(e.text)}
     ${e.twist ? `<div class="ncm-enc-tw"><i class="fas fa-dice-six"></i> ${e.own ? "" : `${T("к6:")} `}${e.own ? "" : e.sub} ${e.own ? "" : "— "}${esc(e.twist)}</div>` : ""}
     ${e.stats && e.stats !== "—" ? `<div class="ncm-enc-st"><i class="fas fa-user-ninja"></i> ${T("По Корке:")} ${esc(e.stats)}</div>` : ""}
     ${mookChips(e)}
@@ -1856,7 +1876,7 @@ async function doEncounter(x, y, distId, { toGM = true } = {}) {
   return e;
 }
 function chatEnc(e, gmOnly) {
-  const content = `<div class="ncm-chat"><div class="ncm-chat-k">${T("СЛУЧАЙНАЯ ВСТРЕЧА ·")} ${esc(e.where)}</div><b>${esc(e.title)}</b><p>${esc(e.text)}</p><p><i>${esc(e.twist)}</i></p>${gmOnly && e.stats !== "—" ? `<small>${T("Статы:")} ${esc(e.stats)}</small>` : ""}</div>`;
+  const content = `<div class="ncm-chat"><div class="ncm-chat-k">${T("СЛУЧАЙНАЯ ВСТРЕЧА ·")} ${esc(e.where)}</div><b>${esc(e.title)}</b>${para(e.text)}<p><i>${esc(e.twist)}</i></p>${gmOnly && e.stats !== "—" ? `<small>${T("Статы:")} ${esc(e.stats)}</small>` : ""}</div>`;
   return ChatMessage.create({ content, speaker: { alias: T("Найт-Сити") }, whisper: gmOnly ? ChatMessage.getWhisperRecipients("GM").map(u => u.id) : [] });
 }
 
@@ -1952,13 +1972,13 @@ function qcard(q) {
     ${q.takenBy ? `<div class="ncm-qc-fx"><i class="fas fa-user-check"></i> ${T("Взял:")} ${esc(q.takenBy)}</div>` : ""}
     ${q.x != null ? `<button class="ncm-qc-go" data-act="gig-go" data-id="${q.id}"><i class="fas fa-location-crosshairs"></i> ${T("На карте")}</button>` : ""}
     ${q.fixer ? `<div class="ncm-qc-fx"><i class="fas fa-user-secret"></i> ${esc(q.fixer)}</div>` : ""}
-    ${q.desc ? `<p>${esc(q.desc)}</p>` : ""}
+    ${q.desc ? para(q.desc) : ""}
     <div class="ncm-qc-meta">
       ${g ? `<button data-poi="${g.id}"><i class="fas fa-handshake"></i> ${esc(g.name)}</button>` : ""}
       ${t ? `<button data-poi="${t.id}"><i class="fas fa-crosshairs"></i> ${esc(t.name)}</button>` : ""}
       ${q.reward ? `<span class="ncm-eb">${esc(q.reward)}</span>` : ""}
     </div>
-    ${isGM() && q.notes ? `<div class="ncm-gm"><p>${esc(q.notes)}</p></div>` : ""}
+    ${isGM() && q.notes ? `<div class="ncm-gm">${para(q.notes)}</div>` : ""}
     ${isGM() ? `<div class="ncm-qc-acts">
       <button data-act="edit-quest" data-id="${q.id}"><i class="fas fa-pen"></i></button>
       ${q.status === "hidden" ? `<button data-act="quest-status" data-st="offer" data-id="${q.id}" title="${T("Игроки увидят «?» на карте")}">${T("Слух")}</button>` : ""}
@@ -2637,7 +2657,7 @@ const Agent = {
     const done = questsVisible().filter(q => ["done", "failed"].includes(q.status));
     const card = (q) => `<div class="ag-job st-${q.status}"><div class="ag-j-h"><b>${esc(q.title)}</b><span>${QSTATUS[q.status]}</span></div>
       ${q.fixer ? `<small><i class="fas fa-user-secret"></i> ${esc(q.fixer)}</small>` : ""}
-      ${q.desc ? `<p>${esc(q.desc).replace(/\n/g, "<br>")}</p>` : ""}
+      ${q.desc ? para(q.desc) : ""}
       <div class="ag-j-f">${q.reward ? `<em>${esc(q.reward)}</em>` : "<span></span>"}
         <span>${q.x != null || q.target ? `<button data-ag="job-map" data-id="${q.id}"><i class="fas fa-location-crosshairs"></i></button>` : ""}
         ${!isGM() && q.status === "offer" ? `<button data-ag="take" data-id="${q.id}">${T("Взять")}</button>` : ""}</span></div></div>`;

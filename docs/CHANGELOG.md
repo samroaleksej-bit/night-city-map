@@ -1,3 +1,9 @@
+## 0.27.2
+
+- Text formatting: line breaks in descriptions, GM notes, gigs and encounters are kept. A blank line starts a new paragraph.
+- NCART: players can now see the lines (Foundry does not let players browse folders, so the GM's client saves the file list for everyone).
+- NCART: the folder is read from the source the file picker used (User Data, S3, The Forge), not only User Data.
+
 ## 0.27.1
 
 - NCART: the folder is re-read if it came back empty (e.g. the folder was set while the map was open).

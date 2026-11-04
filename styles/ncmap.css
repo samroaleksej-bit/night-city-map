@@ -607,3 +607,7 @@
 #ncm .ncm-ncart-fit { margin-top: 6px; }
 #ncm .ncm-ncart-fit label { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 6px; margin: 3px 0; }
 #ncm .ncm-ncart-fit button { margin-top: 4px; }
+
+/* абзацы в текстах: переносы строк из описаний сохраняются */
+.nd-type { white-space: pre-wrap; }
+#ncm .ncm-gm p:last-child, #ncm .ncm-qcard p:last-child { margin-bottom: 0; }
