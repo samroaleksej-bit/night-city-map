@@ -32,7 +32,11 @@
       "LightsName": "City lights at night",
       "LightsHint": "At night the map lights up: street lamps along the roads, windows and neon by district, fires in the combat zones. Turn off on a slow computer.",
       "NcartName": "NCART lines folder",
-      "NcartHint": "Folder with your own NCART line images (one line per file, same size and framing as the map image; white background is fine). Images are not included in the module."
+      "NcartHint": "Folder with your own NCART line images (one line per file, same size and framing as the map image; white background is fine). Images are not included in the module.",
+      "DensityName": "Night lights density, %",
+      "DensityHint": "How many lights the city has at night. Lower it if the map is hard to read at night or you use a large roads image.",
+      "P2PName": "Agent: players can message each other",
+      "P2PHint": "Players get a chat picker in the Agent: fixers & GM, the whole crew, or one other player. The GM sees every message. Off: players can only write to the GM."
     },
     "Keys": {
       "Agent": "Agent (phone)",

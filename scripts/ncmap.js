@@ -67,6 +67,14 @@ Hooks.once("init", () => {
     name: "NCM.Settings.LightsName", hint: "NCM.Settings.LightsHint",
     scope: "client", config: true, type: Boolean, default: true, onChange: () => Lights.sync(true)
   });
+  game.settings.register(MID, "lightsDensity", {
+    name: "NCM.Settings.DensityName", hint: "NCM.Settings.DensityHint",
+    scope: "world", config: true, type: Number, default: 100, range: { min: 10, max: 100, step: 5 }, onChange: () => { Lights.pts = null; Lights.sync(true); }
+  });
+  game.settings.register(MID, "agentP2P", {
+    name: "NCM.Settings.P2PName", hint: "NCM.Settings.P2PHint",
+    scope: "world", config: true, type: Boolean, default: true, onChange: () => Agent.el && Agent.render()
+  });
   game.settings.register(MID, "scSync", {
     name: "NCM.Settings.ScName", hint: "NCM.Settings.ScHint",
     scope: "world", config: true, type: Boolean, default: true, onChange: () => onTime(true)
@@ -245,7 +253,11 @@ async function applyOp(op, d, user) {
     }
     case "take": return save(s => { const q = s.quests.find(x => x.id === d.id); if (q && q.status === "offer") { q.status = "active"; q.takenBy = name; } })
       .then(() => ChatMessage.create({ speaker: { alias: T("Агент") }, content: `<div class="ncm-chat"><div class="ncm-chat-k">${T("ЗАКАЗ ПРИНЯТ")}</div><b>${esc(name)}</b> ${T("берёт заказ «")}${esc(state().quests.find(x => x.id === d.id)?.title ?? "")}${T("»")}</div>` }));
-    case "msg": return save(s => { s.messages.push({ id: rid(), to: d.to ?? "gm", from: d.from ?? name, fromUser: user?.id, text: String(d.text ?? "").slice(0, 2000), t: nowMin(s), ts: Date.now(), ...(d.call ? { call: true } : {}) }); if (s.messages.length > 300) s.messages = s.messages.slice(-300); });
+    case "msg": {
+      // игрок → игрок и общий чат группы: только если мастер это разрешил
+      if (!user?.isGM && d.to !== "gm" && !(p2pOn() && (d.to === "party" || (game.users.get(d.to) && !game.users.get(d.to).isGM)))) d.to = "gm";
+      return save(s => { s.messages.push({ id: rid(), to: d.to ?? "gm", from: d.from ?? name, fromUser: user?.id, text: String(d.text ?? "").slice(0, 2000), t: nowMin(s), ts: Date.now(), ...(d.call ? { call: true } : {}) }); if (s.messages.length > 300) s.messages = s.messages.slice(-300); });
+    }
   }
 }
 function chatTravel(d, name) {
@@ -340,7 +352,10 @@ const Ncart = {
       return this.files;
     }
     this.loading ??= (async () => {
-      const FP = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker?.implementation ?? globalThis.FilePicker;
+      // Берём первый класс, у которого реально есть browse(): v13 (implementation), v12 (глобальный), The Forge подменяет глобальный.
+      const FP = [foundry.applications?.apps?.FilePicker?.implementation, foundry.applications?.apps?.FilePicker, globalThis.FilePicker?.implementation, globalThis.FilePicker]
+        .find(c => typeof c?.browse === "function");
+      if (!FP) { console.error(MID, "NCART: FilePicker not found"); ui.notifications.warn(`NCART: ${T("не открыть папку")} ${dir}`); this.files = []; this.loading = null; return this.files; }
       const clean = dir.replace(/\/+$/, "");
       // источник берём из самого пути: data, public, s3, Forge — как его выбрал FilePicker
       const tries = [];
@@ -453,15 +468,18 @@ const Lights = {
   },
   build() {
     const { w, h, cell } = GRID; if (!cell) return null;
-    const key = `${w}x${h}:${GRID.key}:${dists().length}`;
+    let k100 = 100; try { k100 = Number(game.settings.get(MID, "lightsDensity")) || 100; } catch (e) { /* */ }
+    const keep = Math.max(0.05, Math.min(1, k100 / 100));
+    const key = `${w}x${h}:${GRID.key}:${dists().length}:${k100}`;
     if (this.pts && this.key === key) return this.pts;
-    const R = this.rand(2045), pts = [], distOrder = {};
+    const R = this.rand(2045), R2 = this.rand(777), pts = [], distOrder = {};
     dists().forEach(d => { distOrder[d.id] = R(); });
     const RICH = new Set(["exec", "westbrook", "marina", "uni"]);
     const DENS = { 0: 0, 1: 1, 2: .75, 3: .5, 4: .22, 5: .05 };
     for (let y = 0; y < h; y += 1) for (let x = 0; x < w; x += 1) {
       const v = cell[y * w + x]; if (!v) continue;
       const r0 = R(); if (r0 > (v === 1 ? 0.09 : 0.026)) continue;
+      if (keep < 1 && R2() > keep) continue;                  // «Плотность огней»: при 100% рисунок прежний
       const nx = x / (w - 1), ny = y / (h - 1), d = districtAt(nx, ny), z = zoneAt(nx, ny);
       if (!d) continue;
       const far = Math.exp(-((d.x - nx) ** 2 + (d.y - ny) ** 2) / 0.009); // к окраинам огни редеют
@@ -2221,17 +2239,31 @@ async function doPurchase(actor, it) {
 /* ================================================================ экспорт и импорт мест */
 
 const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests", "roads", "contacts", "geo"];
-function exportData() {
-  const s = state(), out = { module: MID, version: game.modules.get(MID)?.version, ...Object.fromEntries(EXPORT_KEYS.map(k => [k, s[k]])) };
+/** Экспорт. «Только места» — точки и названия без текстов: таким файлом можно делиться, не раздавая описания из книг. */
+async function exportData() {
+  const mode = await new Promise(res => new Dialog({ title: T("Экспорт"),
+    content: `<p>${T("Что сохранить в файл?")}</p><p class="ncm-muted">${T("«Только места» — точки, названия, категории и картинки без описаний и заметок. Таким файлом можно делиться: тексты каждый впишет из своей книги.")}</p>`,
+    buttons: { full: { icon: '<i class="fas fa-file-export"></i>', label: T("Всё"), callback: () => res("full") },
+      bare: { icon: '<i class="fas fa-location-dot"></i>', label: T("Только места"), callback: () => res("bare") } },
+    default: "full", close: () => res(null) }, { classes: ["ncm-dialog"], width: 460 }).render(true));
+  if (!mode) return;
+  const s = state(); let out;
+  if (mode === "full") out = { module: MID, version: game.modules.get(MID)?.version, ...Object.fromEntries(EXPORT_KEYS.map(k => [k, s[k]])) };
+  else {
+    const strip = (o) => { const c = foundry.utils.deepClone(o ?? {}); for (const k of ["desc", "notes"]) if (k in c) c[k] = ""; return c; };
+    out = { module: MID, version: game.modules.get(MID)?.version, bare: true,
+      pins: (s.pins ?? []).map(strip), poi: Object.fromEntries(Object.entries(s.poi ?? {}).map(([k, v]) => [k, strip(v)])),
+      ...(s.roads !== undefined ? { roads: s.roads } : {}), ...(s.geo !== undefined ? { geo: s.geo } : {}) };
+  }
   const dl = foundry.utils.saveDataToFile ?? globalThis.saveDataToFile;
-  dl(JSON.stringify(out, null, 1), "application/json", "night-city-map.json");
+  dl(JSON.stringify(out, null, 1), "application/json", mode === "bare" ? "night-city-map-places.json" : "night-city-map.json");
 }
 async function importData() {
   const file = await new Promise(res => { const i = document.createElement("input"); i.type = "file"; i.accept = ".json,application/json"; i.onchange = () => res(i.files[0]); i.click(); });
   if (!file) return;
   let d; try { d = JSON.parse(await file.text()); } catch (e) { return ui.notifications.error(T("Это не файл карты Найт-Сити.")); }
   if (d?.module !== MID) return ui.notifications.error(T("Это не файл карты Найт-Сити."));
-  const ok = await Dialog.confirm({ title: T("Импорт"), content: `<p>${T("Заменить места, свои точки, встречи, магазины и заказы данными из файла?")}</p>` });
+  const ok = await Dialog.confirm({ title: T("Импорт"), content: `<p>${d.bare ? T("В файле только места без описаний. Заменить ими места и свои точки? Встречи, магазины и заказы останутся как есть.") : T("Заменить места, свои точки, встречи, магазины и заказы данными из файла?")}</p>` });
   if (!ok) return;
   await save(s => { for (const k of EXPORT_KEYS) if (d[k] !== undefined) s[k] = d[k]; });
   ui.notifications.info(T("Импорт готов."));
@@ -2392,6 +2424,8 @@ function formDialog(title, content, okLabel = T("Сохранить")) {
 /* ================================================================ сокет и уведомления */
 
 function emit(data) { game.socket.emit(SOCKET, data); }
+/** Игрокам разрешено писать друг другу и в общий чат группы. */
+function p2pOn() { try { return !!game.settings.get(MID, "agentP2P"); } catch (e) { return true; } }
 
 function questToast(q) {
   const t = document.createElement("div");
@@ -2583,7 +2617,13 @@ const Agent = {
     el.addEventListener("pointermove", (ev) => { if (!d) return; el.style.left = `${ev.clientX - d.x}px`; el.style.top = `${ev.clientY - d.y}px`; el.style.right = "auto"; el.style.bottom = "auto"; });
     el.addEventListener("pointerup", () => { d = null; });
   },
-  mine(m) { return isGM() || m.to === "all" || m.to === game.user.id || m.fromUser === game.user.id; },
+  mine(m) { return isGM() || m.to === "all" || m.to === "party" || m.to === game.user.id || m.fromUser === game.user.id; },
+  /** Ветка переписки игрока: "gm" (мастер и фиксеры), "party" (общий чат группы) или id другого игрока. */
+  thread(m) {
+    if (m.to === "party") return "party";
+    const other = m.fromUser === game.user.id ? m.to : m.fromUser, u = game.users.get(other);
+    return u && !u.isGM ? other : "gm";
+  },
   msgs() { return state().messages.filter(m => this.mine(m)); },
   markSeen() { for (const m of this.msgs()) this.seen.add(m.id); this.unread = 0; this.badge(); },
   badge() { document.querySelectorAll(".ncm-agent-badge").forEach(b => { b.textContent = this.unread || ""; b.hidden = !this.unread; }); },
@@ -2601,7 +2641,7 @@ const Agent = {
     const t = document.createElement("div");
     t.className = "ncm-toast ncm-toast-agent";
     t.innerHTML = `<div class="ncm-toast-k"><i class="fas fa-mobile-screen"></i> ${T("АГЕНТ · НОВОЕ СООБЩЕНИЕ")}</div><b>${esc(m.from)}</b><span>${esc(m.text.slice(0, 120))}${m.text.length > 120 ? "…" : ""}</span>`;
-    t.addEventListener("click", () => { this.open("msg"); t.remove(); });
+    t.addEventListener("click", () => { if (!isGM()) this.chatWith = this.thread(m); this.open("msg"); t.remove(); });
     document.body.appendChild(t);
     requestAnimationFrame(() => t.classList.add("on"));
     setTimeout(() => { t.classList.remove("on"); setTimeout(() => t.remove(), 400); }, 8000);
@@ -2632,14 +2672,26 @@ const Agent = {
     const t = (m) => fmtClock(m.t).time;
     let list = all;
     if (isGM() && this.chatWith) list = all.filter(m => m.to === "all" || m.to === this.chatWith || m.fromUser === this.chatWith);
-    return `${isGM() ? `<div class="ag-to">${T("Кому:")} <select data-ag-to><option value="all">${T("Всем")}</option>${players.map(u => `<option value="${u.id}"${this.chatWith === u.id ? " selected" : ""}>${esc(u.character?.name ?? u.name)}</option>`).join("")}</select>
+    // игрок: ветки «мастер / группа / другой игрок»
+    const p2p = !isGM() && p2pOn(), mates = players.filter(u => u.id !== game.user.id);
+    let th = "gm", hint = T("Ответить мастеру…"), pick = "";
+    if (p2p) {
+      th = this.chatWith === "party" || mates.some(u => u.id === this.chatWith) ? this.chatWith : "gm"; this.chatWith = th;
+      list = all.filter(m => this.thread(m) === th);
+      const fresh = (k) => { const n = all.filter(m => this.thread(m) === k && m.fromUser !== game.user.id && (m.ts ?? 0) > (this.readAt[k] ?? this.readAt._init)).length; return n ? ` (${n})` : ""; };
+      this.readAt ??= { _init: Date.now() };                   // старые сообщения новыми не считаем
+      this.readAt[th] = Date.now();
+      hint = th === "gm" ? T("Ответить мастеру…") : th === "party" ? T("Сообщение группе…") : `${T("Сообщение для")} ${mates.find(u => u.id === th)?.character?.name ?? mates.find(u => u.id === th)?.name ?? ""}…`;
+      pick = `<div class="ag-to">${T("Чат:")} <select data-ag-to><option value="gm"${th === "gm" ? " selected" : ""}>${T("Фиксеры и мастер")}${fresh("gm")}</option><option value="party"${th === "party" ? " selected" : ""}>${T("Вся группа")}${fresh("party")}</option>${mates.map(u => `<option value="${u.id}"${th === u.id ? " selected" : ""}>${esc(u.character?.name ?? u.name)}${fresh(u.id)}</option>`).join("")}</select></div>`;
+    } else if (!isGM()) list = all.filter(m => this.thread(m) === "gm");
+    return `${pick}${isGM() ? `<div class="ag-to">${T("Кому:")} <select data-ag-to><option value="all">${T("Всем")}</option>${players.map(u => `<option value="${u.id}"${this.chatWith === u.id ? " selected" : ""}>${esc(u.character?.name ?? u.name)}</option>`).join("")}</select>
         ${T("От:")} <input data-ag-from value="${esc(this.from ?? T("Фиксер"))}"><button class="ag-call" data-ag="call" title="${T("Голо-вызов")}"><i class="fas fa-phone"></i></button></div>` : ""}
       ${isGM() && list.length ? `<div class="ag-tools"><button data-ag="del-all" title="${T("Удалить все сообщения в этом списке")}"><i class="fas fa-trash"></i> ${this.chatWith ? T("Очистить переписку") : T("Очистить все чаты")}</button></div>` : ""}
       <div class="ag-msgs">${list.length ? list.map(m => `<div class="ag-msg ${m.fromUser === game.user.id ? "out" : "in"}${m.to === "all" ? " all" : ""}">
           ${isGM() || m.fromUser === game.user.id ? `<button class="ag-del" data-ag="del" data-id="${m.id}" title="${T("Удалить сообщение")}">✕</button>` : ""}
-          <div class="ag-m-h">${m.call ? `<i class="fas fa-phone-volume" title="${T("Из звонка")}"></i> ` : ""}<b>${esc(fromName(m))}</b>${isGM() && m.to !== "all" && m.to !== "gm" ? ` → ${esc(game.users.get(m.to)?.name ?? "")}` : ""}${m.to === "all" ? T(" · всем") : ""}<span>${t(m)}</span></div>
+          <div class="ag-m-h">${m.call ? `<i class="fas fa-phone-volume" title="${T("Из звонка")}"></i> ` : ""}<b>${esc(fromName(m))}</b>${isGM() && !["all", "gm", "party"].includes(m.to) ? ` → ${esc(game.users.get(m.to)?.character?.name ?? game.users.get(m.to)?.name ?? "")}` : ""}${m.to === "all" ? T(" · всем") : ""}${m.to === "party" && (isGM() || th !== "party") ? T(" · группа") : ""}<span>${t(m)}</span></div>
           <div class="ag-m-t">${esc(m.text).replace(/\n/g, "<br>")}</div></div>`).join("") : `<p class="ag-empty">${T("Нет сообщений. Сеть молчит.")}</p>`}</div>
-      <div class="ag-compose"><textarea data-ag-text rows="2" placeholder="${isGM() ? T("Сообщение от фиксера…") : T("Ответить мастеру…")}"></textarea><button data-ag="send"><i class="fas fa-paper-plane"></i></button></div>`;
+      <div class="ag-compose"><textarea data-ag-text rows="2" placeholder="${isGM() ? T("Сообщение от фиксера…") : esc(hint)}"></textarea><button data-ag="send"><i class="fas fa-paper-plane"></i></button></div>`;
   },
   contacts() { const s = state(); return (s.contacts ?? []).filter(k => isGM() || k.who === "all" || (k.who ?? []).includes?.(game.user.id)); },
   renderContacts() {
@@ -2679,7 +2731,10 @@ const Agent = {
     if (isGM()) {
       const to = this.el.querySelector("[data-ag-to]")?.value ?? "all"; this.from = this.el.querySelector("[data-ag-from]")?.value || T("Фиксер");
       await act("msg", { to, from: this.from, text });
-    } else await act("msg", { to: "gm", text, from: game.user.character?.name ?? game.user.name });
+    } else {
+      const to = p2pOn() ? (this.el.querySelector("[data-ag-to]")?.value ?? "gm") : "gm";
+      await act("msg", { to, text, from: game.user.character?.name ?? game.user.name });
+    }
   },
   async onClick(ev) {
     const b = ev.target.closest("[data-ag]"); if (!b) return;
@@ -2966,6 +3021,6 @@ Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
   if (!isGM() || !agentOn()) return;
   buttons.unshift({ label: T("Позвонить"), class: "ncm-call-btn", icon: "fas fa-phone-volume", onclick: () => callFromActor(sheet.actor ?? sheet.object) });
 });
-document.addEventListener("change", (ev) => { if (ev.target.matches?.("#ncm-agent [data-ag-to]")) { Agent.chatWith = ev.target.value === "all" ? null : ev.target.value; Agent.render(); } });
+document.addEventListener("change", (ev) => { if (ev.target.matches?.("#ncm-agent [data-ag-to]")) { Agent.chatWith = isGM() && ev.target.value === "all" ? null : ev.target.value; Agent.render(); } });
 
 Hooks.on("collapseSidebar", () => setTimeout(() => { if (UI.el) { UI.layout(); UI.fit(); } }, 350));

@@ -1,3 +1,17 @@
+## 0.28.0 — community requests
+
+- **Agent: players can message each other.** Players get a chat picker in the Agent: fixers & GM, the whole crew, or one other player. The GM sees every message. Turn it off in **Settings → Agent: players can message each other**.
+- **Export → Places only.** The export button now asks what to save. "Places only" keeps pins, names, categories and images, with no descriptions or notes, so a location set can be shared without the book texts. Importing such a file replaces places and custom pins only.
+- **Night lights density.** New world setting (10–100%). Lower it if the map is hard to read at night or you use a large roads image.
+- **NCART: folder could not be read** on some setups (issue #1). The file browser is now picked more carefully. Thanks to Schism for tracking it down.
+
+## 0.28.0 — по просьбам сообщества
+
+- **Агент: игроки пишут друг другу.** У игроков в «Агенте» появился выбор чата: фиксеры и мастер, вся группа или другой игрок. Мастер видит все сообщения. Выключается в **Настройки → «Агент: игроки пишут друг другу»**.
+- **Экспорт → «Только места».** Кнопка экспорта теперь спрашивает, что сохранить. «Только места» - это точки, названия, категории и картинки без описаний и заметок: набором локаций можно делиться без текстов из книг. Импорт такого файла заменяет только места и свои точки.
+- **Плотность ночных огней.** Новая настройка мира (10–100%). Убавь, если ночью карту плохо видно или у тебя большая картинка дорог.
+- **NCART: папка не читалась** на некоторых установках (issue #1). Проводник файлов теперь выбирается аккуратнее. Спасибо Schism за поиск причины.
+
 ## 0.27.2
 
 - Text formatting: line breaks in descriptions, GM notes, gigs and encounters are kept. A blank line starts a new paragraph.

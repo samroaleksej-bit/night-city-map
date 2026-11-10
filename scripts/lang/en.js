@@ -1334,5 +1334,15 @@ export default {
  "Подгонка к карте": "Fit to map",
  "Масштаб": "Scale",
  "Высота": "Height",
- "Сбросить подгонку": "Reset fit"
+ "Сбросить подгонку": "Reset fit",
+ "Чат:": "Chat:",
+ "Фиксеры и мастер": "Fixers & GM",
+ "Вся группа": "Whole crew",
+ "Сообщение группе…": "Message the crew…",
+ " · группа": " · crew",
+ "Что сохранить в файл?": "What should go into the file?",
+ "«Только места» — точки, названия, категории и картинки без описаний и заметок. Таким файлом можно делиться: тексты каждый впишет из своей книги.": "“Places only” keeps pins, names, categories and images, with no descriptions or notes. A file like this is safe to share: everyone adds the texts from their own book.",
+ "Всё": "Everything",
+ "Только места": "Places only",
+ "В файле только места без описаний. Заменить ими места и свои точки? Встречи, магазины и заказы останутся как есть.": "This file has places only, without descriptions. Replace your places and custom pins with it? Encounters, shops and gigs stay as they are."
 };
