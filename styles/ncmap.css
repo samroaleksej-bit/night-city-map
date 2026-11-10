@@ -611,3 +611,29 @@
 /* абзацы в текстах: переносы строк из описаний сохраняются */
 .nd-type { white-space: pre-wrap; }
 #ncm .ncm-gm p:last-child, #ncm .ncm-qcard p:last-child { margin-bottom: 0; }
+
+/* NCART: остановки и поездки */
+#ncm .ncm-ncst { z-index: 0; cursor: pointer; }
+#ncm .ncm-ncst .ncm-ncst-dot { display: block; width: 11px; height: 11px; border-radius: 50%; background: #0b0f14; border: 3px solid var(--c); box-shadow: 0 0 8px var(--c); }
+#ncm .ncm-ncst.hub .ncm-ncst-dot { width: 15px; height: 15px; border-color: #fff; }
+#ncm .ncm-ncst.sel .ncm-ncst-dot { background: var(--c); transform: scale(1.35); }
+#ncm .ncm-ncst .ncm-name { opacity: 0; pointer-events: none; }
+#ncm .ncm-ncst:hover .ncm-name, #ncm .ncm-ncst.sel .ncm-name, #ncm .ncm-pick .ncm-ncst .ncm-name { opacity: 1; }
+#ncm .ncm-svg .ncm-net { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; opacity: .55; }
+#ncm .ncm-svg .ncm-net.edit { stroke-width: 3.2; opacity: 1; stroke-dasharray: 6 4; }
+#ncm .ncm-net-h { margin: 10px 0 4px; padding-top: 8px; border-top: 1px solid rgba(0,240,255,.2); font-weight: 800; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--y); }
+#ncm .ncm-net-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+#ncm .ncm-net-row.on { outline: 1px dashed var(--y); outline-offset: 2px; }
+#ncm .ncm-net-row i:first-child { width: 22px; height: 6px; border-radius: 3px; flex: none; }
+#ncm .ncm-net-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#ncm .ncm-net-row small { opacity: .6; }
+#ncm .ncm-net-row button { all: unset; cursor: pointer; padding: 2px 5px; color: #9fb3c4; }
+#ncm .ncm-net-row button:hover { color: #fff; }
+#ncm .ncm-net-kmh { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; margin-top: 4px; }
+#ncm .ncm-net-kmh input { width: 64px; height: 24px; background: #111; border: 1px solid rgba(0,240,255,.3); color: #fff; }
+#ncm .ncm-net-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+#ncm .ncm-net-chips span { padding: 2px 10px; border: 1px solid var(--lc); border-left: 6px solid var(--lc); font-size: 12px; font-weight: 700; }
+#ncm .ncm-net-to { display: block; font-size: 12px; color: #9fb3c4; }
+#ncm .ncm-net-to select { display: block; width: 100%; margin-top: 4px; height: 30px; background: #111; border: 1px solid rgba(0,240,255,.3); color: #fff; }
+#ncm .ncm-net-eta { margin: 8px 0; }
+#ncm .ncm-net-eta b { color: var(--y); font-size: 18px; }
