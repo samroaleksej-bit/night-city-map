@@ -1,5 +1,6 @@
 ## 0.28.0 — community requests
 
+- **NCART stops and rides.** In the NCART box the GM creates a line (name and colour) and clicks along it on the map: every click is a stop, a click on an existing stop makes a transfer, right click removes the last one. Stops show on the map; click one, pick a destination and press "The crew rides" or "I ride": time passes (wait, stops and transfers are counted) and the marker moves. Train speed and "Players see the stops" are in the same box. Line images are not required for this.
 - **Agent: players can message each other.** Players get a chat picker in the Agent: fixers & GM, the whole crew, or one other player. The GM sees every message. Turn it off in **Settings → Agent: players can message each other**.
 - **Export → Places only.** The export button now asks what to save. "Places only" keeps pins, names, categories and images, with no descriptions or notes, so a location set can be shared without the book texts. Importing such a file replaces places and custom pins only.
 - **Night lights density.** New world setting (10–100%). Lower it if the map is hard to read at night or you use a large roads image.
@@ -7,6 +8,7 @@
 
 ## 0.28.0 — по просьбам сообщества
 
+- **Остановки и поездки NCART.** В окне NCART мастер создаёт линию (название и цвет) и кликает по карте вдоль неё: каждый клик - остановка, клик по уже стоящей остановке делает пересадку, правый клик убирает последнюю. Остановки видны на карте: кликни по станции, выбери, куда ехать, и нажми «Едет группа» или «Еду я». Время пройдёт (считаются ожидание, остановки и пересадки), метка переедет. Скорость поезда и галочка «Игроки видят остановки» там же. Картинки линий для этого не нужны.
 - **Агент: игроки пишут друг другу.** У игроков в «Агенте» появился выбор чата: фиксеры и мастер, вся группа или другой игрок. Мастер видит все сообщения. Выключается в **Настройки → «Агент: игроки пишут друг другу»**.
 - **Экспорт → «Только места».** Кнопка экспорта теперь спрашивает, что сохранить. «Только места» - это точки, названия, категории и картинки без описаний и заметок: набором локаций можно делиться без текстов из книг. Импорт такого файла заменяет только места и свои точки.
 - **Плотность ночных огней.** Новая настройка мира (10–100%). Убавь, если ночью карту плохо видно или у тебя большая картинка дорог.

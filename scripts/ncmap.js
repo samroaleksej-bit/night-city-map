@@ -431,7 +431,7 @@ const Ncart = {
     const rows = await Promise.all(files.map(async f => ({ f, L: await this.load(f) })));
     const shown = gm ? rows : rows.filter(r => on.has(r.f));
     box.innerHTML = `<div class="ncm-ncart-h"><i class="fas fa-train-subway"></i> NCART<button data-act="ncart" title="${T("Закрыть")}"><i class="fas fa-xmark"></i></button></div>
-      ${!files.length ? `<p class="ncm-muted">${T("В папке нет картинок линий.")}</p>` : ""}
+      ${!files.length && this.folder() ? `<p class="ncm-muted">${T("В папке нет картинок линий.")}</p>` : ""}
       ${shown.map(({ f, L }) => `<label class="ncm-ncart-row"><input type="checkbox" data-ncart="${esc(f)}" ${on.has(f) ? "checked" : ""} ${gm ? "" : "disabled"}><i style="background:${L?.color ?? "#888"}"></i><span>${esc(L?.name ?? this.nameOf(f))}</span></label>`).join("")}
       ${!gm && !shown.length ? `<p class="ncm-muted">${T("Мастер пока не включил линии.")}</p>` : ""}
       ${gm && files.length ? `<div class="ncm-seg"><button data-act="ncart-all" data-on="1">${T("Все")}</button><button data-act="ncart-all" data-on="0">${T("Ни одной")}</button></div>
@@ -440,7 +440,9 @@ const Ncart = {
         <label>Y <input type="range" data-fit="y" min="-20" max="20" step="0.1" value="${fit.y}"></label>
         <label>${T("Масштаб")} <input type="range" data-fit="s" min="0.6" max="1.6" step="0.005" value="${fit.s}"></label>
         <label>${T("Высота")} <input type="range" data-fit="sy" min="0.6" max="1.6" step="0.005" value="${fit.sy ?? 1}"></label>
-        <button data-act="ncart-fit-reset">${T("Сбросить подгонку")}</button></details>` : ""}`;
+        <button data-act="ncart-fit-reset">${T("Сбросить подгонку")}</button></details>` : ""}
+      ${Net.boxHtml()}`;
+    Net.bindBox(box);
     box.querySelectorAll("[data-ncart]").forEach(i => i.addEventListener("change", () => {
       const f = i.dataset.ncart;
       save(s => { const set = new Set(s.ncart?.on ?? []); i.checked ? set.add(f) : set.delete(f); s.ncart = { ...(s.ncart ?? {}), on: [...set] }; });
@@ -455,6 +457,142 @@ const Ncart = {
     });
   },
   async setAll(onAll) { const files = await this.list(); return save(s => { s.ncart = { ...(s.ncart ?? {}), on: onAll ? [...files] : [] }; }); },
+};
+
+/* ================================================================ NCART: остановки и поездки */
+
+/** Сеть NCART мастера: линии — упорядоченные списки остановок. Картинки линий для этого не нужны. */
+const Net = {
+  edit: null,                                                  // id линии, которой сейчас расставляют остановки
+  WAIT: 3, DWELL: 0.5, SWAP: 4,                                // ожидание поезда, стоянка, пересадка — минуты
+  get() { const n = state().ncartNet ?? {}; return { lines: n.lines ?? [], st: n.st ?? {}, hide: !!n.hide, kmh: Number(n.kmh) || 60 }; },
+  any() { return this.get().lines.some(l => l.stops.length); },
+  visible() { return isGM() || !this.get().hide; },
+  linesOf(sid) { return this.get().lines.filter(l => l.stops.includes(sid)); },
+  mut(fn) { return save(s => { const n = s.ncartNet ??= {}; n.lines ??= []; n.st ??= {}; fn(n); }); },
+  km(a, b) { return Math.hypot(b.x - a.x, (b.y - a.y) * aspect) * game.settings.get(MID, "widthKm"); },
+  /** Маркеры остановок для слоя меток. */
+  markers() {
+    if (!this.visible()) return "";
+    const n = this.get(), col = {};
+    for (const l of n.lines) for (const id of l.stops) (col[id] ??= []).push(l.color);
+    return Object.entries(n.st).filter(([id]) => col[id]).map(([id, st]) =>
+      `<button class="ncm-pin ncm-ncst${UI.sel === `n:${id}` ? " sel" : ""}${col[id].length > 1 ? " hub" : ""}" data-ncst="${id}" style="left:${st.x * 100}%;top:${st.y * 100}%;--c:${col[id][0]}" title="NCART · ${esc(st.name)}"><span class="ncm-ncst-dot"></span><span class="ncm-name">${esc(st.name)}</span></button>`).join("");
+  },
+  /** Схема линий по остановкам (тонкие линии под метками). */
+  svg() {
+    if (!this.visible()) return "";
+    const n = this.get(), H = 1000 * aspect;
+    return n.lines.filter(l => l.stops.length > 1).map(l => `<polyline class="ncm-net${this.edit === l.id ? " edit" : ""}" style="stroke:${l.color}" points="${l.stops.map(id => n.st[id]).filter(Boolean).map(p => `${(p.x * 1000).toFixed(1)},${(p.y * H).toFixed(1)}`).join(" ")}"/>`).join("");
+  },
+  /** Блок в окне NCART: линии, остановки, скорость. */
+  boxHtml() {
+    const n = this.get(), gm = isGM();
+    if (!gm && !this.any()) return "";
+    return `<div class="ncm-net-h">${T("Остановки и поездки")}</div>
+      ${n.lines.map(l => `<div class="ncm-net-row${this.edit === l.id ? " on" : ""}"><i style="background:${l.color}"></i><span>${esc(l.name)} <small>· ${l.stops.length}</small></span>${gm ? `<button data-act="net-stops" data-id="${l.id}" title="${T("Расставить остановки по клику")}"><i class="fas fa-location-dot"></i></button><button data-act="net-line" data-id="${l.id}" title="${T("Название и цвет")}"><i class="fas fa-pen"></i></button><button data-act="net-del" data-id="${l.id}" title="${T("Удалить линию")}"><i class="fas fa-trash"></i></button>` : ""}</div>`).join("")}
+      ${gm ? `<div class="ncm-seg"><button data-act="net-line"><i class="fas fa-plus"></i> ${T("Линия")}</button></div>
+        <label class="ncm-ncart-row"><input type="checkbox" data-net-hide ${n.hide ? "" : "checked"}><span>${T("Игроки видят остановки")}</span></label>
+        <label class="ncm-net-kmh">${T("Скорость поезда, км/ч")} <input type="number" data-net-kmh min="10" max="300" step="5" value="${n.kmh}"></label>` : ""}
+      ${!n.lines.length && gm ? `<p class="ncm-muted">${T("Создай линию и кликай по карте вдоль неё: каждый клик — остановка. Игроки смогут ездить между остановками.")}</p>` : ""}`;
+  },
+  bindBox(box) {
+    box.querySelector("[data-net-hide]")?.addEventListener("change", (e) => this.mut(n => { n.hide = !e.target.checked; }));
+    box.querySelector("[data-net-kmh]")?.addEventListener("change", (e) => this.mut(n => { n.kmh = Math.max(10, Math.min(300, Number(e.target.value) || 60)); }));
+  },
+  async lineDialog(id) {
+    const l = this.get().lines.find(x => x.id === id), PAL = ["#ff2a6d", "#00f0ff", "#fcee0a", "#7cff6b", "#ff9a3c", "#b06bff", "#ffffff", "#4d8dff"];
+    const data = await formDialog(l ? T("Линия NCART") : T("Новая линия NCART"), `<form class="ncm-form">
+      <label>${T("Название")}<input name="name" value="${esc(l?.name ?? "")}" placeholder="${T("Красная линия")}"></label>
+      <label>${T("Цвет")}<input type="color" name="color" value="${l?.color ?? PAL[this.get().lines.length % PAL.length]}"></label></form>`);
+    if (!data?.name) return;
+    const nid = l?.id ?? rid();
+    await this.mut(n => { const x = n.lines.find(q => q.id === nid); if (x) Object.assign(x, { name: data.name, color: data.color }); else n.lines.push({ id: nid, name: data.name, color: data.color, stops: [] }); });
+    if (!l) this.startEdit(nid);
+  },
+  async delLine(id) {
+    const l = this.get().lines.find(x => x.id === id); if (!l) return;
+    const ok = await Dialog.confirm({ title: "NCART", content: `<p>${T("Удалить линию")} «${esc(l.name)}»?</p>` }); if (!ok) return;
+    if (this.edit === id) this.edit = null;
+    return this.mut(n => { n.lines = n.lines.filter(x => x.id !== id); this.gc(n); });
+  },
+  /** Остановки, которые не стоят ни на одной линии, удаляем. */
+  gc(n) { const used = new Set(n.lines.flatMap(l => l.stops)); for (const id of Object.keys(n.st)) if (!used.has(id)) delete n.st[id]; },
+  startEdit(id) { this.edit = id; UI.sel = null; UI.mode = "browse"; UI.setMode("ncst"); UI.renderMarkers(); Ncart.renderBox(); },
+  /** Клик по карте в режиме расстановки: новая остановка или пересадка на существующей. */
+  async click(f, target) {
+    if (!isGM() || !this.edit) return;
+    const hit = target.closest?.("[data-ncst]")?.dataset.ncst, lid = this.edit;
+    await this.mut(n => {
+      const l = n.lines.find(x => x.id === lid); if (!l) return;
+      if (hit) { if (l.stops.at(-1) !== hit) l.stops.push(hit); return; }
+      const base = streetNear(f.x, f.y)?.ru ?? districtAt(f.x, f.y)?.ru ?? T("Станция"), names = new Set(Object.values(n.st).map(q => q.name));
+      let name = base, k = 2; while (names.has(name)) name = `${base} ${k++}`;
+      const id = rid(); n.st[id] = { x: f.x, y: f.y, name }; l.stops.push(id);
+    });
+  },
+  undo() { const lid = this.edit; if (!isGM() || !lid) return; return this.mut(n => { const l = n.lines.find(x => x.id === lid); if (l?.stops.length) { l.stops.pop(); this.gc(n); } }); },
+  /** Кратчайшие по времени поездки от остановки: Дейкстра по узлам «остановка на линии». */
+  from(src) {
+    const n = this.get(), key = (s, l) => `${s}|${l}`, dist = new Map(), prev = new Map(), done = new Set();
+    for (const l of n.lines) if (l.stops.includes(src)) dist.set(key(src, l.id), this.WAIT);
+    for (;;) {
+      let u = null, du = Infinity; for (const [k, d] of dist) if (!done.has(k) && d < du) { u = k; du = d; }
+      if (u == null) break; done.add(u);
+      const [sid, lid] = u.split("|"), l = n.lines.find(x => x.id === lid), relax = (k, w) => { if (du + w < (dist.get(k) ?? Infinity)) { dist.set(k, du + w); prev.set(k, u); } };
+      l.stops.forEach((id, i) => { if (id !== sid) return; for (const j of [i - 1, i + 1]) { const o = l.stops[j]; if (o && n.st[o] && n.st[sid]) relax(key(o, lid), this.km(n.st[sid], n.st[o]) / n.kmh * 60 + this.DWELL); } });
+      for (const o of n.lines) if (o.id !== lid && o.stops.includes(sid)) relax(key(sid, o.id), this.SWAP);
+    }
+    const best = {};
+    for (const [k, d] of dist) { const [sid] = k.split("|"); if (sid !== src && (!best[sid] || d < best[sid].min)) best[sid] = { min: d, k }; }
+    for (const [sid, b] of Object.entries(best)) {
+      const path = []; let swaps = 0, km = 0;
+      for (let k = b.k; k; k = prev.get(k)) { const [a, la] = k.split("|"), p = prev.get(k); if (p && p.split("|")[1] !== la) swaps++; if (path[0] !== a) path.unshift(a); }
+      for (let i = 1; i < path.length; i++) km += this.km(n.st[path[i - 1]], n.st[path[i]]);
+      Object.assign(b, { path, swaps, km });
+    }
+    return best;
+  },
+  /** Панель остановки: линии и поездка. */
+  panel(panel, sid) {
+    const n = this.get(), st = n.st[sid];
+    if (!st || !this.visible()) { UI.sel = null; panel.classList.remove("on"); panel.innerHTML = ""; return; }
+    const lines = this.linesOf(sid), d = districtAt(st.x, st.y), go = this.from(sid);
+    const dests = Object.entries(go).map(([id, r]) => ({ id, name: n.st[id]?.name ?? "?", ...r })).sort((a, b) => a.name.localeCompare(b.name));
+    if (!dests.some(x => x.id === this.dest)) this.dest = dests[0]?.id ?? null;
+    const r = this.dest && go[this.dest];
+    panel.classList.add("on");
+    panel.innerHTML = `<div class="ncm-p-head" style="--c:${lines[0]?.color ?? "#00f0ff"}">
+        <span class="ncm-p-cat"><i class="fas fa-train-subway"></i> ${T("Станция NCART")}</span>
+        <h2>${esc(st.name)}</h2>${d ? `<button class="ncm-p-dist" data-act="dist" data-id="${d.id}">${esc(d.ru)}</button>` : ""}
+        <button class="ncm-p-x" data-act="unsel"><i class="fas fa-xmark"></i></button></div>
+      <div class="ncm-p-body">
+        <div class="ncm-net-chips">${lines.map(l => `<span style="--lc:${l.color}">${esc(l.name)}</span>`).join("")}</div>
+        ${dests.length ? `<label class="ncm-net-to">${T("Куда едем")}<select data-net-dest>${dests.map(x => `<option value="${x.id}"${x.id === this.dest ? " selected" : ""}>${esc(x.name)} · ${fmtMin(x.min)}</option>`).join("")}</select></label>
+          ${r ? `<p class="ncm-net-eta"><b>${fmtMin(r.min)}</b> · ${r.km.toFixed(1)} ${T("км")} · ${T("остановок:")} ${r.path.length - 1}${r.swaps ? ` · ${T("пересадок:")} ${r.swaps}` : ""}</p>` : ""}
+          <div class="ncm-p-acts"><button data-act="net-go" data-who="party" data-id="${sid}"><i class="fas fa-users"></i> ${T("Едет группа")}</button><button data-act="net-go" data-who="me" data-id="${sid}"><i class="fas fa-user"></i> ${T("Еду я")}</button></div>
+          <p class="ncm-muted">${T("Время пройдёт, метка переедет на станцию назначения.")}</p>` : `<p class="ncm-muted">${T("С этой станции пока некуда ехать.")}</p>`}
+        ${isGM() ? `<div class="ncm-p-acts"><button data-act="net-st-name" data-id="${sid}"><i class="fas fa-pen"></i> ${T("Переименовать")}</button><button class="danger" data-act="net-st-del" data-id="${sid}"><i class="fas fa-trash"></i> ${T("Убрать станцию")}</button></div>` : ""}
+      </div>`;
+    panel.querySelector("[data-net-dest]")?.addEventListener("change", (e) => { this.dest = e.target.value; this.panel(panel, sid); });
+  },
+  async go(sid, who) {
+    const n = this.get(), r = this.dest && this.from(sid)[this.dest], end = n.st[this.dest]; if (!r || !end) return;
+    UI.animateTravel(r.path.map(id => n.st[id]));
+    await act("travel", { x: end.x, y: end.y, min: r.min, who: who === "me" ? game.user.id : "party", mode: "NCART", to: end.name, km: r.km });
+    setTimeout(() => UI.select(`n:${this.dest}`), 1300);
+  },
+  async rename(sid) {
+    const st = this.get().st[sid]; if (!st) return;
+    const data = await formDialog(T("Станция NCART"), `<form class="ncm-form"><label>${T("Название")}<input name="name" value="${esc(st.name)}"></label></form>`);
+    if (data?.name) return this.mut(n => { if (n.st[sid]) n.st[sid].name = data.name; });
+  },
+  async delStation(sid) {
+    const st = this.get().st[sid]; if (!st) return;
+    const ok = await Dialog.confirm({ title: "NCART", content: `<p>${T("Убрать станцию")} «${esc(st.name)}» ${T("со всех линий?")}</p>` }); if (!ok) return;
+    UI.sel = null;
+    return this.mut(n => { for (const l of n.lines) l.stops = l.stops.filter(x => x !== sid); delete n.st[sid]; });
+  }
 };
 
 const Lights = {
@@ -785,7 +923,7 @@ const UI = {
           <button data-act="quests" title="${T("Список заказов")}"><i class="fas fa-scroll"></i> ${T("Заказы")}</button>
           <button data-act="mode-party" title="${T("Поставить метку «Мы здесь» (вся группа)")}"><i class="fas fa-users"></i> ${T("Мы здесь")}</button>
           <button data-act="mode-me" title="${T("Поставить свою метку «Я здесь» — если группа разделилась")}"><i class="fas fa-user"></i> ${T("Я здесь")}</button>
-          ${Ncart.folder() ? `<button data-act="ncart" title="${T("Линии NCART: метро и надземка")}"><i class="fas fa-train-subway"></i> NCART</button>` : ""}
+          ${Ncart.folder() || isGM() || Net.any() ? `<button data-act="ncart" title="${T("Линии NCART: метро и надземка")}"><i class="fas fa-train-subway"></i> NCART</button>` : ""}
           ${agentOn() ? `<button data-act="agent" title="${T("Агент: заказы и сообщения (Shift+A)")}"><i class="fas fa-mobile-screen"></i> ${T("Агент")}<span class="ncm-agent-badge" hidden></span></button>` : ""}
           ${isGM() ? `<button data-act="gen-gigs" title="${T("Разбросать случайные заказы по карте")}"><i class="fas fa-circle-question"></i> ${T("Заказы на карту")}</button>
           <button data-act="gen-shops" title="${T("Расставить случайные магазины по городу")}"><i class="fas fa-cart-shopping"></i> ${T("Магазины")}</button>
@@ -942,7 +1080,7 @@ const UI = {
       const img = u.character?.img ?? u.avatar;
       return `<div class="ncm-me" style="left:${pt.x * 100}%;top:${pt.y * 100}%;--uc:${u.color?.css ?? u.color ?? "#ff2a6d"}" title="${esc(u.name)}">${img ? `<img src="${esc(img)}" alt="">` : ""}<b>${esc(u.character?.name ?? u.name)}</b></div>`;
     }).join("");
-    this.el.querySelector(".ncm-markers").innerHTML = html + gigs + party + me;
+    this.el.querySelector(".ncm-markers").innerHTML = Net.markers() + html + gigs + party + me;
   },
   renderSvg() {
     const H = 1000 * aspect, P = (p) => `${(p.x * 1000).toFixed(1)},${(p.y * H).toFixed(1)}`;
@@ -952,6 +1090,7 @@ const UI = {
       wps.map((p, i) => `<circle class="${cls}-pt${i === 0 ? " start" : i === wps.length - 1 ? " end" : ""}" cx="${(p.x * 1000).toFixed(1)}" cy="${(p.y * H).toFixed(1)}" r="${i === 0 || i === wps.length - 1 ? 5 : 3}"/>`).join("");
     this.el.querySelector(".ncm-svg").innerHTML = `
       <defs><filter id="ncmglow"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      ${Net.svg()}
       ${shared?.pts?.length > 1 ? line(shared.path ?? shared.pts, "ncm-rt ncm-rt-shared", shared.pts) : ""}
       ${line(mine, "ncm-rt", this.route)}
       <line class="ncm-rt-rubber" x1="0" y1="0" x2="0" y2="0" style="display:none"/>`;
@@ -970,7 +1109,8 @@ const UI = {
   renderHint() {
     const h = this.el.querySelector(".ncm-hint");
     const msg = { route: T("Маршрут: кликайте по карте или точкам — каждый клик добавляет поворот. Тяните карту мышью, чтобы сдвинуть. Правый клик — убрать последнюю точку."),
-      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), shop: T("Кликните по карте, где поставить магазин. Район и наценка возьмутся по месту."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint() }[this.mode];
+      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), shop: T("Кликните по карте, где поставить магазин. Район и наценка возьмутся по месту."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint(),
+      ncst: `NCART «${esc(Net.get().lines.find(l => l.id === Net.edit)?.name ?? "")}»: ${T("кликай по карте вдоль линии — каждый клик ставит остановку. Клик по чужой остановке — пересадка. Правый клик — убрать последнюю.")}` }[this.mode];
     const st = state();
     const clr = this.mode === "party" && st.party ? `<button data-act="party-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>`
       : this.mode === "me" && st.players?.[game.user.id] ? `<button data-act="me-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>` : "";
@@ -989,6 +1129,7 @@ const UI = {
     if (this.mode === "roads") return this.renderRoadsPanel(panel);
     if (this.mode === "geo") return this.renderGeoPanel(panel);
     if (this.mode === "route" || (this.route.length > 1 && !this.sel)) return this.renderRoutePanel(panel);
+    if (String(this.sel ?? "").startsWith("n:")) return Net.panel(panel, this.sel.slice(2));
     const p = this.sel && poiById(this.sel);
     if (!p) { panel.classList.remove("on"); panel.innerHTML = ""; return; }
     if (p.shop) return this.renderShop(panel, p);
@@ -1470,7 +1611,7 @@ const UI = {
       if (this.stroke) { const st = this.stroke; this.stroke = null; return save(s => { s.roads = [...(s.roads ?? []), st]; }); }
       const d = this.drag; this.drag = null; vp.classList.remove("ncm-grab");
       if (!d || d.moved) return;
-      if (d.btn === 2) { if (this.mode === "route" && this.route.length) { this.route.pop(); this.recalc(); } if (this.mode === "geo" && this.geoA) { this.geoA = null; this.geoRedo = null; this.geoMark(); this.renderHint(); } return; }
+      if (d.btn === 2) { if (this.mode === "ncst") return Net.undo(); if (this.mode === "route" && this.route.length) { this.route.pop(); this.recalc(); } if (this.mode === "geo" && this.geoA) { this.geoA = null; this.geoRedo = null; this.geoMark(); this.renderHint(); } return; }
       if (d.btn === 0 && !d.target.closest("button:not(.ncm-pin)")) this.onMapClick(ev, d.target);
     });
     vp.addEventListener("contextmenu", (ev) => ev.preventDefault());
@@ -1557,6 +1698,7 @@ const UI = {
   },
   setMode(m) {
     this.mode = this.mode === m ? "browse" : m;
+    if (this.mode !== "ncst" && Net.edit) { Net.edit = null; Ncart.boxOn && Ncart.renderBox(); }
     if (this.geoA) { this.geoA = null; this.geoRedo = null; this.geoMark(); }
     if (this.mode === "roads") loadGrid().then(() => this.renderRoads()); else this.renderRoads();
     if (this.mode === "route" && !this.route.length && this.sel) { const p = poiById(this.sel); if (p) this.route.push({ x: p.x, y: p.y, poi: p.id }); }
@@ -1574,6 +1716,9 @@ const UI = {
     if (pin?.dataset.gig && this.mode !== "route") { /* обработано ниже */ }
     const f = this.toFrac(ev);
     if (this.mode === "geo") { if (isGM() && geoOn()) return this.geoClick(f, target); return; }
+    if (this.mode === "ncst") return Net.click(f, target);
+    const stn = target.closest("[data-ncst]");
+    if (stn && this.mode === "browse") return this.select(`n:${stn.dataset.ncst}`);
     if (this.mode === "route") {
       const gq = pin?.dataset.gig ? state().quests.find(x => x.id === pin.dataset.gig) : null;
       const p = pin?.dataset.poi ? poiById(pin.dataset.poi) : null;
@@ -1666,6 +1811,12 @@ const UI = {
       }
       case "places": return this.renderPlaces();
       case "ncart": return Ncart.toggleBox();
+      case "net-line": return isGM() && Net.lineDialog(id);
+      case "net-del": return isGM() && Net.delLine(id);
+      case "net-stops": return isGM() && (Net.edit === id ? this.setMode("browse") : Net.startEdit(id));
+      case "net-go": return Net.go(id, b.dataset.who);
+      case "net-st-name": return isGM() && Net.rename(id);
+      case "net-st-del": return isGM() && Net.delStation(id);
       case "ncart-all": return Ncart.setAll(b.dataset.on === "1");
       case "ncart-fit-reset": return game.settings.set(MID, "ncartFit", { x: 0, y: 0, s: 1, sy: 1 });
       case "mode-roads": return this.setMode("roads");
@@ -2238,7 +2389,7 @@ async function doPurchase(actor, it) {
 
 /* ================================================================ экспорт и импорт мест */
 
-const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests", "roads", "contacts", "geo"];
+const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests", "roads", "contacts", "geo", "ncartNet"];
 /** Экспорт. «Только места» — точки и названия без текстов: таким файлом можно делиться, не раздавая описания из книг. */
 async function exportData() {
   const mode = await new Promise(res => new Dialog({ title: T("Экспорт"),
@@ -2253,7 +2404,7 @@ async function exportData() {
     const strip = (o) => { const c = foundry.utils.deepClone(o ?? {}); for (const k of ["desc", "notes"]) if (k in c) c[k] = ""; return c; };
     out = { module: MID, version: game.modules.get(MID)?.version, bare: true,
       pins: (s.pins ?? []).map(strip), poi: Object.fromEntries(Object.entries(s.poi ?? {}).map(([k, v]) => [k, strip(v)])),
-      ...(s.roads !== undefined ? { roads: s.roads } : {}), ...(s.geo !== undefined ? { geo: s.geo } : {}) };
+      ...(s.roads !== undefined ? { roads: s.roads } : {}), ...(s.geo !== undefined ? { geo: s.geo } : {}), ...(s.ncartNet !== undefined ? { ncartNet: s.ncartNet } : {}) };
   }
   const dl = foundry.utils.saveDataToFile ?? globalThis.saveDataToFile;
   dl(JSON.stringify(out, null, 1), "application/json", mode === "bare" ? "night-city-map-places.json" : "night-city-map.json");
