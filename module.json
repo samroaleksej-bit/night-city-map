@@ -1,0 +1,14 @@
+{
+  "id": "oathbreaker-ru",
+  "title": "Клятвопреступник - подкласс паладина (D&D 2024)",
+  "description": "<p>Подкласс паладина «Клятвопреступник» для системы D&D 5e, правила 2024: сам подкласс с выдачей умений по уровням и шесть умений с готовыми действиями и эффектами. На русском.</p>",
+  "version": "1.0.0",
+  "authors": [{ "name": "Verlierboy", "url": "https://t.me/circleofdms" }],
+  "compatibility": { "minimum": "14", "verified": "14" },
+  "relationships": { "systems": [{ "id": "dnd5e", "type": "system", "compatibility": { "minimum": "6.0.0" } }] },
+  "packs": [
+    { "name": "oathbreaker", "label": "Клятвопреступник", "path": "packs/oathbreaker", "type": "Item", "system": "dnd5e", "ownership": { "PLAYER": "OBSERVER", "ASSISTANT": "OWNER" } }
+  ],
+  "manifest": "https://raw.githubusercontent.com/samroaleksej-bit/night-city-map/oathbreaker-ru/module.json",
+  "download": "https://github.com/samroaleksej-bit/night-city-map/archive/refs/heads/oathbreaker-ru.zip"
+}
