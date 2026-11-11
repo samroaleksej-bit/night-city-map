@@ -2,7 +2,7 @@
   "id": "jungle-book",
   "title": "Книга Длани Симори (личное)",
   "description": "<p>Личный модуль кампании «Скрытые земли людоящеров»: реестр экспедиции Ордена в виде книги. Досье героев и раздатки листаются как страницы, мастер открывает книгу игрокам и ведёт их за собой.</p>",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "authors": [{ "name": "Verlierboy", "url": "https://t.me/circleofdms" }],
   "compatibility": { "minimum": "12", "verified": "14" },
   "esmodules": ["scripts/book.js"],

@@ -47,7 +47,7 @@
   (window.TABS || []).forEach(([label, k, title]) => { const b = document.createElement("button"); b.textContent = label; b.title = title; b.dataset.n = k; b.onclick = () => go(k); tabs.appendChild(b); });
   addEventListener("message", (e) => { if (e.data?.type === "jb-goto") go(e.data.n, true); });
   addEventListener("resize", fit); fit();
-  n = Math.max(0, Math.min(L, parseInt(location.hash.slice(1), 10) || 0)); draw(true);
+  n = Math.max(0, Math.min(L, parseInt(document.documentElement.dataset.start ?? location.hash.slice(1), 10) || 0)); draw(true);
   /* Вложения: кто что видит. Вне Foundry (предпросмотр) считаем зрителя мастером. */
   const A = (p) => (window.__F && window.__F[p]) || p;
   const inFoundry = parent !== window;

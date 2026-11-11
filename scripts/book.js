@@ -6,7 +6,16 @@ const TITLE = "Книга Длани Симори";
 let TOC = [];
 let lead = true; // мастер ведёт игроков за собой
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const frameHTML = (page) => `<div class="jb-frame"><iframe src="modules/${MID}/book/index.html#${Number(page) || 0}" title="${TITLE}" allow="fullscreen"></iframe></div>`;
+/* Сервер Foundry v13+ отдаёт .html из модулей как простой текст, и iframe показывал бы исходник.
+   Поэтому страницу книги забираем текстом и кладём в iframe через srcdoc, а <base> возвращает на место пути к стилям, скриптам и картинкам. */
+async function frameEl(page) {
+  const base = new URL(`modules/${MID}/book/`, document.baseURI).href;
+  let html = await (await fetch(base + "index.html", { cache: "no-cache" })).text();
+  html = html.replace(/<html([^>]*)>/i, `<html$1 data-start="${Number(page) || 0}">`).replace(/<head>/i, `<head><base href="${base}">`);
+  const d = document.createElement("div"); d.className = "jb-frame";
+  const f = document.createElement("iframe"); f.title = TITLE; f.setAttribute("allow", "fullscreen; autoplay"); f.srcdoc = html;
+  d.appendChild(f); return d;
+}
 
 let win = null;
 function makeWindow(page) {
@@ -15,14 +24,14 @@ function makeWindow(page) {
   if (V2) {
     class BookWindow extends V2 {
       static DEFAULT_OPTIONS = { id: WIN_ID, classes: ["jb-window"], window: { title: TITLE, resizable: true }, position: { width: w, height: h } };
-      async _renderHTML() { const d = document.createElement("div"); d.innerHTML = frameHTML(page); return d.firstElementChild; }
+      async _renderHTML() { return frameEl(page); }
       _replaceHTML(result, content) { content.replaceChildren(result); }
     }
     return new BookWindow();
   }
   class BookWindowV1 extends Application {
     static get defaultOptions() { return foundry.utils.mergeObject(super.defaultOptions, { id: WIN_ID, title: TITLE, width: w, height: h, resizable: true, classes: ["jb-window"], popOut: true }); }
-    async _renderInner() { return $(frameHTML(page)); }
+    async _renderInner() { return $(await frameEl(page)); }
   }
   return new BookWindowV1();
 }
