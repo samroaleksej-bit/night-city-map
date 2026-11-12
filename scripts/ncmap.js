@@ -5,6 +5,7 @@
  * хранится в настройке мира и сразу расходится всем клиентам.
  */
 import { MAP_SIZE, POIS, DISTRICTS as BASE_DISTRICTS, ZONES, STREETS as BASE_STREETS } from "./data.js";
+import { filePickerClass, browseFiles, parsePath } from "./fp.js";
 import { CATALOG, SHOP_TYPES, TIERS, stockFor, MARKET_CATS, MARKET_NAMES, marketStock } from "./shops.js";
 import { rollEncounter, threatOf, THREAT_RU, rollGig, FIXERS } from "./encounters.js";
 import { MOOKS, MOOK_PACK } from "./mooks.js";
@@ -33,6 +34,25 @@ const CATS = {
   market: { ru: "Ночные рынки", color: "#9b6bff", icon: "fa-moon" },
   custom: { ru: "Метки мастера", color: "#f5e663", icon: "fa-location-dot" }
 };
+/* Свои категории мастера и правки встроенных (название, цвет, значок) лежат в state.cats и накладываются на CATS. */
+const CAT_ICONS = ["fa-location-dot", "fa-house", "fa-user", "fa-users", "fa-star", "fa-heart", "fa-skull", "fa-gun", "fa-bomb", "fa-crosshairs", "fa-shield-halved", "fa-mask",
+  "fa-briefcase", "fa-key", "fa-flag", "fa-eye", "fa-bolt", "fa-fire", "fa-microchip", "fa-flask", "fa-syringe", "fa-hospital", "fa-wrench", "fa-car",
+  "fa-warehouse", "fa-anchor", "fa-building", "fa-utensils", "fa-music", "fa-dice"];
+let BASE_CATS = null;
+const okColor = (c, d) => /^#[0-9a-f]{6}$/i.test(String(c ?? "")) ? c : d;
+const okIcon = (i, d) => /^fa-[a-z0-9-]+$/.test(String(i ?? "")) ? i : d;
+function syncCats() {
+  BASE_CATS ??= clone(CATS);
+  let over = {}; try { over = game.settings.get(MID, "state")?.cats ?? {}; } catch (e) { /* настройка ещё не готова */ }
+  for (const k of Object.keys(CATS)) if (!BASE_CATS[k] && !over[k]) delete CATS[k];
+  for (const [k, b] of Object.entries(BASE_CATS)) {
+    const o = over[k] ?? {};
+    CATS[k] = { ...b, ...(o.ru ? { ru: esc(o.ru), raw: o.ru } : {}), color: okColor(o.color, b.color), icon: okIcon(o.icon, b.icon), edited: !!over[k] };
+  }
+  for (const [k, o] of Object.entries(over)) if (!BASE_CATS[k]) CATS[k] = { ru: esc(o.ru || "?"), raw: o.ru || "", color: okColor(o.color, "#f5e663"), icon: okIcon(o.icon, "fa-location-dot"), own: true };
+}
+/** Категория точки; если её удалили или она пришла из чужого файла — «Метки мастера». */
+const catKey = (p) => CATS[p.cat] ? p.cat : "custom";
 const DANGER = ["Вода", "Корпоративная", "Умеренная", "Переполненные пригороды", "Боевая зона", "Зона Поражения"];
 const TRANSPORT = [
   { id: "foot", ru: "Пешком", kmh: 5, icon: "fa-person-walking" },
@@ -44,14 +64,15 @@ const QSTATUS = { hidden: "Скрыт", offer: "Слух / предложени�
 
 /* ================================================================ настройки и состояние */
 
-const DEFAULT_STATE = { quests: [], pins: [], poi: {}, party: null, route: null, visited: [], shops: [], markets: [], night: false, clock: 0, players: {}, messages: [], contacts: [], encounters: [], encMode: "mix", roads: [], geo: { on: false, districts: [], streets: [] } };
+const DEFAULT_STATE = { cats: {}, turf: [], quests: [], pins: [], poi: {}, party: null, route: null, visited: [], shops: [], markets: [], night: false, clock: 0, players: {}, messages: [], contacts: [], encounters: [], encMode: "mix", roads: [], geo: { on: false, districts: [], streets: [] } };
 
 Hooks.once("init", () => {
   game.settings.register(MID, "lang", {
     name: "NCM.Settings.LangName", hint: "NCM.Settings.LangHint", scope: "client", config: true, type: String, default: "auto",
     choices: { auto: "NCM.Settings.LangAuto", ru: "Русский", en: "English" }, requiresReload: true
   });
-  game.settings.register(MID, "state", { scope: "world", config: false, type: Object, default: DEFAULT_STATE, onChange: () => { GEO = null; UI.refresh(); Agent.onState(); } });
+  game.settings.register(MID, "state", { scope: "world", config: false, type: Object, default: DEFAULT_STATE, onChange: () => { GEO = null; syncCats(); UI.refresh(); Agent.onState(); } });
+  game.settings.register(MID, "near", { scope: "client", config: false, type: Object, default: { on: false, km: 2 } });
   game.settings.register(MID, "image", {
     name: "NCM.Settings.ImageName", hint: "NCM.Settings.ImageHint",
     scope: "world", config: true, type: String, filePicker: "image", default: `modules/${MID}/assets/night-city-2045.webp`, onChange: () => UI.rebuild()
@@ -352,19 +373,15 @@ const Ncart = {
       return this.files;
     }
     this.loading ??= (async () => {
-      // Берём первый класс, у которого реально есть browse(): v13 (implementation), v12 (глобальный), The Forge подменяет глобальный.
-      const FP = [foundry.applications?.apps?.FilePicker?.implementation, foundry.applications?.apps?.FilePicker, globalThis.FilePicker?.implementation, globalThis.FilePicker]
-        .find(c => typeof c?.browse === "function");
-      if (!FP) { console.error(MID, "NCART: FilePicker not found"); ui.notifications.warn(`NCART: ${T("не открыть папку")} ${dir}`); this.files = []; this.loading = null; return this.files; }
       const clean = dir.replace(/\/+$/, "");
       // источник берём из самого пути: data, public, s3, Forge — как его выбрал FilePicker
       const tries = [];
-      try { const pr = FP.parse?.(clean); if (pr?.source) tries.push([pr.source, pr.target ?? clean, pr.bucket ? { bucket: pr.bucket } : {}]); } catch (e) {}
+      const pr = parsePath(clean); if (pr) tries.push([pr.source, pr.target, pr.bucket ? { bucket: pr.bucket } : {}]);
       if (typeof ForgeVTT !== "undefined" && ForgeVTT.usingTheForge) tries.push(["forgevtt", clean, {}]);
       tries.push(["data", clean, {}], ["public", clean, {}]);
       let found = null, lastErr = null;
       for (const [src, target, opt] of tries) {
-        try { const r = await FP.browse(src, target, opt); if (r) { found = r; console.log(MID, "NCART:", src, target, "→", r.files?.length ?? 0, "files"); break; } }
+        try { const r = await browseFiles(src, target, opt); if (r) { found = r; console.log(MID, "NCART:", src, target, "→", r.files?.length ?? 0, "files"); break; } }
         catch (e) { lastErr = e; }
       }
       if (!found) { console.error(MID, "NCART", lastErr); ui.notifications.warn(`NCART: ${T("не открыть папку")} ${dir}`); this.files = []; }
@@ -864,7 +881,27 @@ const UI = {
     setTimeout(() => el.remove(), 250);
   },
   rebuild() { if (this.el) { this.el.remove(); this.el = null; this.build(); } },
+  /** Категории: подтянуть правки мастера, новые включить в фильтр, перерисовать полосу кнопок. */
+  syncCats() {
+    syncCats();
+    if (!this.catsSeen) { this.catsSeen = new Set(this.filter); this.filter.add("turf"); }
+    for (const k of Object.keys(CATS)) if (!this.catsSeen.has(k)) { this.catsSeen.add(k); this.filter.add(k); }
+    const nav = this.el?.querySelector(".ncm-cats"); if (nav) nav.innerHTML = this.catsHtml();
+  },
+  nearCfg() { try { const n = game.settings.get(MID, "near") ?? {}; return { on: !!n.on, km: Math.min(15, Math.max(0.5, Number(n.km) || 2)) }; } catch (e) { return { on: false, km: 2 }; } },
+  nearOrigin(s = state()) { return s.players?.[game.user.id] ?? s.party ?? null; },
+  catsHtml() {
+    const s = state(), near = this.nearCfg(), turf = (s.turf ?? []).filter(t => isGM() || !t.hidden).length;
+    // «Рядом» и «Категории» стоят первыми: справа полосу перекрывает панель места
+    return `<button data-act="near" class="ncm-near${near.on ? " on" : ""}" style="--c:#fcee0a" title="${T("Показывать только то, что рядом с вашей меткой, места с активными заказами и дома персонажей")}"><i class="fas fa-location-crosshairs"></i>${T("Рядом")}</button>
+        ${near.on ? `<label class="ncm-near-r" title="${T("Радиус")}"><input type="range" min="0.5" max="15" step="0.5" value="${near.km}"><b>${near.km} ${T("км")}</b></label>` : ""}
+        ${isGM() ? `<button data-act="cats" style="--c:#9aa0b5" title="${T("Категории: свои, названия, цвета и значки")}"><i class="fas fa-gear"></i>${T("Категории")}</button>
+        <button data-act="mode-turf" class="${this.mode === "turf" ? "on" : ""}" style="--c:#ff9f43" title="${T("Метки банд: логотип или надпись поверх района")}"><i class="fas fa-spray-can"></i>${T("Метки банд")}</button>` : ""}<span class="ncm-cats-gap"></span>`
+      + Object.entries(CATS).map(([k, c]) => `<button data-cat="${k}" class="${this.filter.has(k) ? "on" : ""}" style="--c:${c.color}"><i class="fas ${c.icon}"></i>${c.ru}</button>`).join("")
+      + (turf ? `<button data-cat="turf" class="${this.filter.has("turf") ? "on" : ""}" style="--c:#ff9f43" title="${T("Метки банд и группировок поверх карты")}"><i class="fas fa-spray-can"></i>${T("Банды")}</button>` : "");
+  },
   refresh() {
+    if (this.el) this.syncCats();
     if (applyRoadEdits() && this.el) { this.path = []; if (this.route.length > 1) this.recalc(); this.renderRoads(); }
     if (this.el) { this.renderStreets(); this.renderLabels(); this.renderMarkers(); this.renderSvg(); this.renderPanel(); this.renderQuestList(); Ncart.sync(); }
   },
@@ -912,6 +949,7 @@ const UI = {
   },
 
   build(fromRect = null) {
+    this.syncCats();
     const el = document.createElement("div");
     el.id = ROOT;
     el.innerHTML = `
@@ -938,7 +976,7 @@ const UI = {
         <div class="ncm-clock" title="${T("Время в Найт-Сити")}"></div>
         <button class="ncm-x" data-act="close" title="${T("Закрыть (Esc)")}"><i class="fas fa-xmark"></i></button>
       </header>
-      <nav class="ncm-cats">${Object.entries(CATS).map(([k, c]) => `<button data-cat="${k}" class="on" style="--c:${c.color}"><i class="fas ${c.icon}"></i>${c.ru}</button>`).join("")}</nav>
+      <nav class="ncm-cats">${this.catsHtml()}</nav>
       <div class="ncm-viewport">
         <div class="ncm-world">
           <img class="ncm-img" src="${esc(mapImage())}" alt="" draggable="false">
@@ -951,6 +989,7 @@ const UI = {
           <svg class="ncm-svg" viewBox="0 0 1000 ${Math.round(1000 * aspect)}" preserveAspectRatio="none"></svg>
           <div class="ncm-streets"></div>
           <canvas class="ncm-roads" hidden></canvas>
+          <div class="ncm-turf"></div>
           <div class="ncm-labels"></div>
           <div class="ncm-markers"></div>
         </div>
@@ -972,6 +1011,20 @@ const UI = {
     img.complete && img.naturalWidth ? ready() : img.addEventListener("load", ready, { once: true });
     img.addEventListener("error", () => ui.notifications.error(T("Карта Найт-Сити: не найден файл картинки. Укажите его в настройках модуля.")), { once: true });
     this.bind();
+    // Ползунок радиуса «Рядом»: полоса категорий перерисовывается, поэтому слушаем её саму
+    el.querySelector(".ncm-cats").addEventListener("input", (ev) => {
+      if (!ev.target.matches(".ncm-near-r input")) return;
+      const km = Number(ev.target.value) || 2; ev.target.nextElementSibling.textContent = `${km} ${T("км")}`;
+      this.nearKm = km; this.renderMarkers();
+    });
+    // Категорий теперь может быть много: колесо мыши прокручивает полосу вбок
+    el.querySelector(".ncm-cats").addEventListener("wheel", (ev) => {
+      const nav = ev.currentTarget; if (nav.scrollWidth <= nav.clientWidth) return;
+      ev.preventDefault(); nav.scrollLeft += ev.deltaY || ev.deltaX;
+    }, { passive: false });
+    el.querySelector(".ncm-cats").addEventListener("change", (ev) => {
+      if (ev.target.matches(".ncm-near-r input")) game.settings.set(MID, "near", { on: true, km: Number(ev.target.value) || 2 });
+    });
     this.renderPanel();
     this.renderQuestList();
     loadGrid();
@@ -1061,14 +1114,19 @@ const UI = {
     this.renderClock();
     const qByPoi = {};
     for (const qu of questsVisible()) if (qu.status === "active" || (isGM() && qu.status === "hidden")) { if (qu.target) (qByPoi[qu.target] ??= []).push(qu); if (qu.giver) (qByPoi[qu.giver] ??= []).push(qu); }
-    const html = allPois().filter(p => this.filter.has(p.cat)).map(p => {
+    this.renderTurf(s);
+    const near = this.nearCfg(), org = near.on && !q ? this.nearOrigin(s) : null, nearKm = this.nearKm ?? near.km, wkm = Number(game.settings.get(MID, "widthKm")) || 1;
+    const inNear = (p) => !org || p.who || qByPoi[p.id] || this.sel === p.id || Math.hypot(p.x - org.x, (p.y - org.y) * aspect) * wkm <= nearKm;
+    const ring = org ? `<div class="ncm-nearring" style="left:${org.x * 100}%;top:${org.y * 100}%;width:${(2 * nearKm / wkm) * 100}%"></div>` : "";
+    const html = allPois().filter(p => this.filter.has(catKey(p)) && inNear(p)).map(p => {
       const c = p.shop ? { color: CATALOG[SHOP_TYPES[p.type]?.cats[0]]?.color ?? CATS.shop.color, icon: p.type === "night" ? "fa-moon" : p.type === "ripper" ? "fa-robot" : CATALOG[SHOP_TYPES[p.type]?.cats[0]]?.icon ?? "fa-cart-shopping" } : (CATS[p.cat] ?? CATS.custom);
       const hit = !q || `${p.name} ${p.en ?? ""} ${p.desc ?? ""} ${p.n ?? ""}`.toLowerCase().includes(q);
       const qs = qByPoi[p.id];
-      return `<button class="ncm-pin${this.sel === p.id ? " sel" : ""}${hit ? "" : " dim"}${p.hidden ? " secret" : ""}${qs ? " has-q" : ""}${s.visited.includes(p.id) ? " visited" : ""}"
+      return `<button class="ncm-pin${this.sel === p.id ? " sel" : ""}${hit ? "" : " dim"}${p.hidden ? " secret" : ""}${qs ? " has-q" : ""}${p.who ? " home" : ""}${s.visited.includes(p.id) ? " visited" : ""}"
         data-poi="${p.id}" style="left:${p.x * 100}%;top:${p.y * 100}%;--c:${c.color}" title="${esc(p.name)}">
         <span class="ncm-dot${p.shop ? " shop" : p.market ? " market" : ""}">${p.n ?? `<i class="fas ${c.icon}"></i>`}</span>
         ${qs ? `<span class="ncm-qmark">!</span>` : ""}
+        ${p.who ? whoBadge(p.who) : ""}
         <span class="ncm-name">${esc(p.name)}</span></button>`;
     }).join("");
     const party = s.party ? `<div class="ncm-party" style="left:${s.party.x * 100}%;top:${s.party.y * 100}%"><span></span><b>${T("МЫ ЗДЕСЬ")}</b></div>` : "";
@@ -1080,7 +1138,18 @@ const UI = {
       const img = u.character?.img ?? u.avatar;
       return `<div class="ncm-me" style="left:${pt.x * 100}%;top:${pt.y * 100}%;--uc:${u.color?.css ?? u.color ?? "#ff2a6d"}" title="${esc(u.name)}">${img ? `<img src="${esc(img)}" alt="">` : ""}<b>${esc(u.character?.name ?? u.name)}</b></div>`;
     }).join("");
-    this.el.querySelector(".ncm-markers").innerHTML = Net.markers() + html + gigs + party + me;
+    this.el.querySelector(".ncm-markers").innerHTML = ring + Net.markers() + html + gigs + party + me;
+  },
+  /** Метки банд: картинка мастера или надпись поверх района. Кликаются только в режиме «Банды». */
+  renderTurf(s = state()) {
+    const box = this.el?.querySelector(".ncm-turf"); if (!box) return;
+    const list = this.filter.has("turf") || this.mode === "turf" ? (s.turf ?? []).filter(t => isGM() || !t.hidden) : [];
+    box.innerHTML = list.map(t => {
+      const w = Math.min(60, Math.max(2, Number(t.size) || 12)), op = Math.min(1, Math.max(0.1, (Number(t.op) || 60) / 100)), col = okColor(t.color, "#ff2a6d");
+      const inner = t.img ? `<img src="${esc(t.img)}" alt="" draggable="false">`
+        : `<svg viewBox="0 0 100 26" preserveAspectRatio="xMidYMid meet"><text x="50" y="19" text-anchor="middle" textLength="${Math.min(96, Math.max(20, String(t.name ?? "").length * 9))}" lengthAdjust="spacingAndGlyphs">${esc(t.name ?? "")}</text></svg>`;
+      return `<div class="ncm-turf-i${t.hidden ? " secret" : ""}" data-turf="${t.id}" title="${esc(t.name ?? "")}" style="left:${t.x * 100}%;top:${t.y * 100}%;width:${w}%;--o:${op};--c:${col}">${inner}</div>`;
+    }).join("");
   },
   renderSvg() {
     const H = 1000 * aspect, P = (p) => `${(p.x * 1000).toFixed(1)},${(p.y * H).toFixed(1)}`;
@@ -1109,7 +1178,7 @@ const UI = {
   renderHint() {
     const h = this.el.querySelector(".ncm-hint");
     const msg = { route: T("Маршрут: кликайте по карте или точкам — каждый клик добавляет поворот. Тяните карту мышью, чтобы сдвинуть. Правый клик — убрать последнюю точку."),
-      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), shop: T("Кликните по карте, где поставить магазин. Район и наценка возьмутся по месту."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint(),
+      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), shop: T("Кликните по карте, где поставить магазин. Район и наценка возьмутся по месту."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint(), turf: T("Банды: клик по карте ставит метку, клик по готовой метке открывает её настройки."),
       ncst: `NCART «${esc(Net.get().lines.find(l => l.id === Net.edit)?.name ?? "")}»: ${T("кликай по карте вдоль линии — каждый клик ставит остановку. Клик по чужой остановке — пересадка. Правый клик — убрать последнюю.")}` }[this.mode];
     const st = state();
     const clr = this.mode === "party" && st.party ? `<button data-act="party-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>`
@@ -1121,6 +1190,8 @@ const UI = {
     this.el.classList.toggle("ncm-roadsmode", this.mode === "roads");
     this.el.classList.toggle("ncm-arrange", this.mode === "arrange");
     this.el.classList.toggle("ncm-geomode", this.mode === "geo");
+    this.el.classList.toggle("ncm-turfmode", this.mode === "turf");
+    this.el.querySelector('.ncm-cats [data-act="mode-turf"]')?.classList.toggle("on", this.mode === "turf");
   },
 
   /* ------------------------------------------------ панель справа */
@@ -1131,6 +1202,7 @@ const UI = {
     if (this.mode === "route" || (this.route.length > 1 && !this.sel)) return this.renderRoutePanel(panel);
     if (String(this.sel ?? "").startsWith("n:")) return Net.panel(panel, this.sel.slice(2));
     const p = this.sel && poiById(this.sel);
+    if (!p && this.panelMode === "cats" && isGM()) return this.renderCatsPanel();
     if (!p) { panel.classList.remove("on"); panel.innerHTML = ""; return; }
     if (p.shop) return this.renderShop(panel, p);
     if (p.market) return this.renderMarket(panel, p);
@@ -1146,6 +1218,7 @@ const UI = {
         ${d ? `<button class="ncm-p-dist" data-act="dist" data-id="${d.id}">${esc(d.ru)}</button>` : ""}
         ${streetNear(p.x, p.y) ? `<div class="ncm-p-street"><i class="fas fa-signs-post"></i> ${esc(streetNear(p.x, p.y).ru)}</div>` : ""}
         ${z ? `<div class="ncm-warn ${z}"><i class="fas fa-triangle-exclamation"></i> ${z === "hot" ? T("Зона Поражения — руины, наводнения, мародёры") : T("Боевая зона — здесь правят банды")}</div>` : ""}
+        ${p.who ? `<div class="ncm-p-who"><i class="fas fa-house-user"></i> ${T("Здесь:")} <b>${esc(p.who)}</b></div>` : ""}
         <button class="ncm-p-x" data-act="unsel"><i class="fas fa-xmark"></i></button>
       </div>
       <div class="ncm-p-body">
@@ -1473,6 +1546,26 @@ const UI = {
       </div>`;
   },
 
+  /* ------------------------------------------------ категории */
+  renderCatsPanel() {
+    const panel = this.el.querySelector(".ncm-panel");
+    this.panelMode = "cats"; if (this.sel) { this.sel = null; this.renderMarkers(); }
+    panel.classList.add("on");
+    panel.innerHTML = `
+      <div class="ncm-p-head" style="--c:#9aa0b5">
+        <span class="ncm-p-cat"><i class="fas fa-gear"></i> ${T("Мастер")}</span>
+        <h2>${T("Категории")}</h2>
+        <button class="ncm-p-x" data-act="unsel"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="ncm-p-body">
+        <p class="ncm-muted">${T("Добавляй свои категории и меняй название, цвет и значок встроенных. Категория выбирается в окне правки места.")}</p>
+        ${Object.entries(CATS).map(([k, c]) => `<div class="ncm-own ncm-catrow"><span class="ncm-catdot" style="--c:${c.color}"><i class="fas ${c.icon}"></i></span><div><b>${c.ru}</b><small>${c.own ? T("своя") : c.edited ? T("встроенная, изменена") : T("встроенная")}</small></div>
+          <button data-act="cat-edit" data-id="${k}" title="${T("Править")}"><i class="fas fa-pen"></i></button>
+          ${c.own ? `<button class="danger" data-act="cat-del" data-id="${k}" title="${T("Удалить")}"><i class="fas fa-trash"></i></button>` : c.edited ? `<button data-act="cat-reset" data-id="${k}" title="${T("Вернуть как было")}"><i class="fas fa-rotate-left"></i></button>` : ""}</div>`).join("")}
+        <div class="ncm-p-acts"><button data-act="cat-add"><i class="fas fa-plus"></i> ${T("Добавить категорию")}</button></div>
+      </div>`;
+  },
+
   /* ------------------------------------------------ свои встречи */
   renderEncEditor() {
     const panel = this.el.querySelector(".ncm-panel"), s = state(), list = s.encounters ?? [], mode = s.encMode ?? "mix";
@@ -1702,9 +1795,10 @@ const UI = {
     if (this.geoA) { this.geoA = null; this.geoRedo = null; this.geoMark(); }
     if (this.mode === "roads") loadGrid().then(() => this.renderRoads()); else this.renderRoads();
     if (this.mode === "route" && !this.route.length && this.sel) { const p = poiById(this.sel); if (p) this.route.push({ x: p.x, y: p.y, poi: p.id }); }
-    this.renderHint(); this.renderPanel(); this.renderSvg(); this.renderStreets();
+    this.renderHint(); this.renderPanel(); this.renderSvg(); this.renderStreets(); this.renderTurf();
   },
   select(id, center = false) {
+    this.panelMode = null;
     if (this.sel !== id) { this.shopQuery = ""; this.lastEncDist = null; }
     this.sel = id;
     const p = poiById(id);
@@ -1717,6 +1811,16 @@ const UI = {
     const f = this.toFrac(ev);
     if (this.mode === "geo") { if (isGM() && geoOn()) return this.geoClick(f, target); return; }
     if (this.mode === "ncst") return Net.click(f, target);
+    if (this.mode === "turf") {
+      if (!isGM()) return;
+      const id = target.closest("[data-turf]")?.dataset.turf, cur = id ? (state().turf ?? []).find(t => t.id === id) : null;
+      const data = await turfDialog(cur);
+      if (!data) return;
+      if (data.del) return save(st => { st.turf = (st.turf ?? []).filter(t => t.id !== id); });
+      delete data.del;
+      if (!data.img && !data.name) return ui.notifications.warn(T("Нужна картинка или название."));
+      return save(st => { st.turf ??= []; const t = st.turf.find(x => x.id === id); if (t) Object.assign(t, data); else st.turf.push({ id: `t${rid()}`, x: f.x, y: f.y, ...data }); });
+    }
     const stn = target.closest("[data-ncst]");
     if (stn && this.mode === "browse") return this.select(`n:${stn.dataset.ncst}`);
     if (this.mode === "route") {
@@ -1769,7 +1873,34 @@ const UI = {
       case "zin": return this.zoomAt(1.3);
       case "zout": return this.zoomAt(1 / 1.3);
       case "fit": return this.fit();
-      case "unsel": this.sel = null; this.renderMarkers(); return this.renderPanel();
+      case "unsel": this.sel = null; this.panelMode = null; this.renderMarkers(); return this.renderPanel();
+      case "near": {
+        const n = this.nearCfg();
+        if (!n.on && !this.nearOrigin()) return ui.notifications.warn(T("«Рядом» считает от метки «Мы здесь» или вашей метки «Я здесь». Сначала поставьте метку."));
+        this.nearKm = null;
+        await game.settings.set(MID, "near", { on: !n.on, km: n.km });
+        this.syncCats(); return this.renderMarkers();
+      }
+      case "cats": return this.renderCatsPanel();
+      case "mode-turf": return this.setMode("turf");
+      case "cat-add": case "cat-edit": {
+        const k = b.dataset.act === "cat-edit" ? id : `u${rid()}`, cur = CATS[id] ?? {};
+        const data = await catDialog(b.dataset.act === "cat-edit" ? { ...cur, ru: cur.raw ?? cur.ru } : {});
+        if (!data?.ru?.trim()) return;
+        return save(s => { s.cats ??= {}; s.cats[k] = { ru: data.ru.trim().slice(0, 40), color: okColor(data.color, "#f5e663"), icon: okIcon(data.icon, "fa-location-dot") }; });
+      }
+      case "cat-reset": return save(s => { if (s.cats) delete s.cats[id]; });
+      case "cat-del": {
+        const n = allPois().filter(p => p.cat === id).length;
+        const ok = await Dialog.confirm({ title: T("Удалить категорию"), content: `<p>${T("Удалить категорию")} «${CATS[id]?.ru ?? ""}»? ${n ? `${T("Мест в ней:")} ${n}. ${T("Они перейдут в «Метки мастера».")}` : ""}</p>` });
+        if (!ok) return;
+        this.filter.delete(id); this.catsSeen?.delete(id);
+        return save(s => {
+          if (s.cats) delete s.cats[id];
+          for (const pin of s.pins ?? []) if (pin.cat === id) pin.cat = "custom";
+          for (const v of Object.values(s.poi ?? {})) if (v.cat === id) v.cat = "custom";
+        });
+      }
       case "dist": return this.renderDistrict(id);
       case "quests": return this.el.querySelector(".ncm-quests").classList.toggle("on");
       case "mode-route": return this.setMode("route");
@@ -2389,7 +2520,7 @@ async function doPurchase(actor, it) {
 
 /* ================================================================ экспорт и импорт мест */
 
-const EXPORT_KEYS = ["pins", "poi", "encounters", "encMode", "shops", "markets", "quests", "roads", "contacts", "geo", "ncartNet"];
+const EXPORT_KEYS = ["cats", "turf", "pins", "poi", "encounters", "encMode", "shops", "markets", "quests", "roads", "contacts", "geo", "ncartNet"];
 /** Экспорт. «Только места» — точки и названия без текстов: таким файлом можно делиться, не раздавая описания из книг. */
 async function exportData() {
   const mode = await new Promise(res => new Dialog({ title: T("Экспорт"),
@@ -2401,8 +2532,8 @@ async function exportData() {
   const s = state(); let out;
   if (mode === "full") out = { module: MID, version: game.modules.get(MID)?.version, ...Object.fromEntries(EXPORT_KEYS.map(k => [k, s[k]])) };
   else {
-    const strip = (o) => { const c = foundry.utils.deepClone(o ?? {}); for (const k of ["desc", "notes"]) if (k in c) c[k] = ""; return c; };
-    out = { module: MID, version: game.modules.get(MID)?.version, bare: true,
+    const strip = (o) => { const c = foundry.utils.deepClone(o ?? {}); for (const k of ["desc", "notes", "who"]) if (k in c) c[k] = ""; return c; };
+    out = { module: MID, version: game.modules.get(MID)?.version, bare: true, cats: s.cats ?? {},
       pins: (s.pins ?? []).map(strip), poi: Object.fromEntries(Object.entries(s.poi ?? {}).map(([k, v]) => [k, strip(v)])),
       ...(s.roads !== undefined ? { roads: s.roads } : {}), ...(s.geo !== undefined ? { geo: s.geo } : {}), ...(s.ncartNet !== undefined ? { ncartNet: s.ncartNet } : {}) };
   }
@@ -2420,12 +2551,40 @@ async function importData() {
   ui.notifications.info(T("Импорт готов."));
 }
 
+/** Плашка «кто здесь живёт»: имена, а для имён, совпавших с актёрами мира, ещё и портреты. */
+function whoBadge(who) {
+  const names = String(who).split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).slice(0, 6);
+  const faces = names.map(n => game.actors?.getName?.(n)).filter(a => a?.img && !a.img.includes("mystery-man")).slice(0, 4)
+    .map(a => `<img src="${esc(a.img)}" alt="">`).join("");
+  return `<span class="ncm-who"><i class="fas fa-house-user"></i>${faces}<em>${esc(names.join(", "))}</em></span>`;
+}
+function catDialog(c = {}) {
+  const icon = okIcon(c.icon, "fa-location-dot"), icons = CAT_ICONS.includes(icon) ? CAT_ICONS : [icon, ...CAT_ICONS];
+  return formDialog(c.ru ? T("Категория") : T("Новая категория"), `<form class="ncm-form">
+    <label>${T("Название")}<input name="ru" value="${esc(c.ru ?? "")}" maxlength="40" placeholder="${T("Жильё команды")}"></label>
+    <label>${T("Цвет")}<input type="color" name="color" value="${okColor(c.color, "#f5e663")}"></label>
+    <div class="ncm-icons"><span>${T("Значок")}</span><div>${icons.map(i => `<label title="${i}"><input type="radio" name="icon" value="${i}"${i === icon ? " checked" : ""}><i class="fas ${i}"></i></label>`).join("")}</div></div></form>`);
+}
+async function turfDialog(t = null) {
+  const d = await formDialog(t ? T("Метка банды") : T("Новая метка банды"), `<form class="ncm-form">
+    <label>${T("Название")}<input name="name" value="${esc(t?.name ?? "")}" placeholder="Maelstrom"></label>
+    <label>${T("Картинка (логотип, лучше с прозрачным фоном)")}<span class="ncm-fp"><input name="img" value="${esc(t?.img ?? "")}" placeholder="${T("пусто — будет надпись с названием")}"><button type="button" data-fp="img" title="${T("Выбрать файл")}"><i class="fas fa-file-image"></i></button></span></label>
+    <div class="ncm-row"><label>${T("Размер, % ширины карты")}<input type="number" name="size" min="2" max="60" step="1" value="${Number(t?.size) || 12}"></label>
+    <label>${T("Непрозрачность, %")}<input type="number" name="op" min="10" max="100" step="5" value="${Number(t?.op) || 60}"></label></div>
+    <label>${T("Цвет надписи")}<input type="color" name="color" value="${okColor(t?.color, "#ff2a6d")}"></label>
+    <label class="ncm-check"><input type="checkbox" name="hidden" ${t?.hidden ? "checked" : ""}> ${T("Скрыть от игроков")}</label>
+    ${t ? `<label class="ncm-check"><input type="checkbox" name="del"> ${T("Удалить эту метку")}</label>` : ""}</form>`);
+  if (!d) return null;
+  return { name: String(d.name ?? "").trim().slice(0, 40), img: String(d.img ?? "").trim(), size: Math.min(60, Math.max(2, Number(d.size) || 12)), op: Math.min(100, Math.max(10, Number(d.op) || 60)), color: okColor(d.color, "#ff2a6d"), hidden: !!d.hidden, del: !!d.del };
+}
+
 /** Своя точка мастера: категория, описание, картинка для досье, защита от удаления. */
 function pinDialog(title, p = {}, { base = false } = {}) {
   const cats = Object.entries(CATS).filter(([k]) => !["shop", "market"].includes(k));
   return formDialog(title, `<form class="ncm-form">
     <label>${T("Название")}<input name="name" value="${esc(p.name ?? "")}" placeholder="${T("Схрон Мальстрема")}"></label>
     <label>${T("Категория")}<select name="cat">${cats.map(([k, c]) => `<option value="${k}"${(p.cat ?? "custom") === k ? " selected" : ""}>${c.ru}</option>`).join("")}</select></label>
+    <label>${T("Кто здесь живёт или бывает (через запятую)")}<input name="who" list="ncm-who-list" value="${esc(p.who ?? "")}" placeholder="${T("Ви, Джеки")}"><datalist id="ncm-who-list">${game.users.filter(u => u.character).map(u => `<option value="${esc(u.character.name)}"></option>`).join("")}</datalist></label>
     <label>${T("Описание (видят игроки)")}<textarea name="desc" rows="4">${esc(p.desc ?? "")}</textarea></label>
     <label>${T("Картинка для досье")}<span class="ncm-fp"><input name="img" value="${esc(p.img ?? "")}" placeholder="${base ? T("пусто — арт модуля") : "worlds/…/bar.webp"}"><button type="button" data-fp="img" title="${T("Выбрать файл")}"><i class="fas fa-file-image"></i></button></span></label>
     <label>${T("Заметки мастера")}<textarea name="notes" rows="2">${esc(p.notes ?? "")}</textarea></label>
@@ -2529,7 +2688,7 @@ async function resetDialog() {
 function openFilePicker(inp) {
   if (!inp) return;
   try {
-    const FP = foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker?.implementation ?? globalThis.FilePicker;
+    const FP = filePickerClass();
     if (!FP) throw new Error("FilePicker not found");
     const fp = new FP({ type: "image", current: inp.value || "", callback: (path) => { inp.value = path; inp.dispatchEvent(new Event("change", { bubbles: true })); } });
     const r = fp.render(true);
@@ -2621,6 +2780,7 @@ function localizeData() {
 Hooks.once("setup", () => { if (freezeLang() !== "ru") localizeData(); });
 
 Hooks.once("ready", () => {
+  syncCats();
   game.socket.on(SOCKET, (d) => {
     if (!d) return;
     if (d.action === "op") { if (game.user === game.users.activeGM) applyOp(d.op, d.data, game.users.get(d.user)); return; }

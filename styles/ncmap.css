@@ -637,3 +637,33 @@
 #ncm .ncm-net-to select { display: block; width: 100%; margin-top: 4px; height: 30px; background: #111; border: 1px solid rgba(0,240,255,.3); color: #fff; }
 #ncm .ncm-net-eta { margin: 8px 0; }
 #ncm .ncm-net-eta b { color: var(--y); font-size: 18px; }
+
+/* ---- 0.29: свои категории, «кто здесь живёт», метки банд, фильтр «Рядом» ---- */
+#ncm .ncm-cats .ncm-cats-gap { flex: none; width: 1px; height: 20px; align-self: center; background: rgba(255,255,255,.2); margin: 0 4px; }
+#ncm .ncm-near-r { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; color: #fcee0a; font-size: 12px; border: 1px solid rgba(252,238,10,.3); }
+#ncm .ncm-near-r input { width: 90px; margin: 0; accent-color: #fcee0a; }
+#ncm .ncm-near-r b { min-width: 46px; font-weight: 700; }
+#ncm .ncm-nearring { position: absolute; aspect-ratio: 1; transform: translate(-50%, -50%); border: 2px dashed rgba(252,238,10,.55); border-radius: 50%; background: radial-gradient(circle, rgba(252,238,10,.05), rgba(252,238,10,0) 70%); pointer-events: none; z-index: 0; }
+#ncm .ncm-pin.home .ncm-name { opacity: 1; transform: none; }
+#ncm .ncm-pin.home .ncm-dot { box-shadow: 0 0 0 2px #000, 0 0 0 4px #fff, 0 0 14px var(--c); }
+#ncm .ncm-who { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; white-space: nowrap; font-size: 11px; font-weight: 700; color: #001014; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.6); pointer-events: none; }
+#ncm .ncm-who i { font-size: 10px; } #ncm .ncm-who em { font-style: normal; }
+#ncm .ncm-who img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; border: 1px solid #001014; margin: -2px -1px; }
+#ncm.ncm-moving .ncm-who { visibility: hidden; }
+#ncm .ncm-p-who { margin-top: 6px; font-size: 13px; color: #fff; } #ncm .ncm-p-who i { color: var(--c); }
+#ncm .ncm-turf { position: absolute; inset: 0; pointer-events: none; }
+#ncm .ncm-turf-i { position: absolute; transform: translate(-50%, -50%); opacity: var(--o, .6); pointer-events: none; }
+#ncm .ncm-turf-i img, #ncm .ncm-turf-i svg { display: block; width: 100%; height: auto; border: none; }
+#ncm .ncm-turf-i text { font: 900 20px "Impact", "Arial Black", sans-serif; fill: var(--c); stroke: #000; stroke-width: .8px; paint-order: stroke; letter-spacing: 1px; text-transform: uppercase; }
+#ncm .ncm-turf-i.secret { outline: 1px dashed rgba(255,255,255,.5); }
+#ncm.ncm-turfmode .ncm-turf { z-index: 8; }
+#ncm.ncm-turfmode .ncm-turf-i { pointer-events: auto; cursor: pointer; outline: 1px dashed rgba(255,159,67,.9); outline-offset: 2px; }
+#ncm.ncm-turfmode .ncm-markers { opacity: .45; }
+#ncm .ncm-catrow .ncm-catdot { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--c); color: #000; font-size: 12px; }
+#ncm .ncm-catrow > div { flex: 1; min-width: 0; display: flex; flex-direction: column; } #ncm .ncm-catrow small { opacity: .6; }
+.ncm-dialog .ncm-icons { display: flex; flex-direction: column; gap: 4px; font-weight: 600; }
+.ncm-dialog .ncm-icons > div { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+.ncm-dialog .ncm-icons label { display: grid; place-items: center; height: 32px; border: 1px solid rgba(128,128,128,.4); border-radius: 4px; cursor: pointer; }
+.ncm-dialog .ncm-icons input { position: absolute; opacity: 0; pointer-events: none; }
+.ncm-dialog .ncm-icons label:has(input:checked) { background: #fcee0a; color: #000; border-color: #000; }
+.ncm-dialog .ncm-form input[type=color] { height: 30px; padding: 0 2px; }

@@ -1,3 +1,21 @@
+## 0.29.0 — community requests, part two
+
+- **Your own categories.** The new **Categories** button (GM, left of the category bar) opens a list: add categories with a name, colour and icon, and rename or recolour the built-in ones. Pick the category in the place edit window. Deleting a category moves its places to "GM Markers". Categories travel with export and import. Asked by CptWashu and Timo.
+- **Who lives here.** Every place has a new field "Who lives or hangs out here". Such places get a white ring, a name that is always visible and a badge with the names; if a name matches an actor in the world, the portrait is shown too. Good for player homes and important NPCs. Asked by Timo.
+- **Gang marks.** The **Gang marks** button (GM) lets you click the map and drop a logo from your own image, or a tag with the gang name if there is no image. Size, opacity, colour, hidden from players. Players switch the layer with the "Gangs" button. No logos are shipped with the module. Asked by Timo.
+- **Nearby.** The **Nearby** button hides everything farther than the chosen radius (0.5–15 km) from your "I am here" marker, or from "We are here" if you have none. Places with active gigs, homes, gigs and NCART stops always stay. Each player sets it for themselves. Asked by It'sSoClover.
+- **Fixed: "NCART: FilePicker not found"** on Foundry v12. The file browser was looked up in the wrong place, so the folder with line images was never read. The same fix covers picking an image for a place and importing terminal handouts from a folder. Thanks to Literally Me and Schism.
+- The category bar scrolls sideways with the mouse wheel when it does not fit.
+
+## 0.29.0 — по просьбам сообщества, часть вторая
+
+- **Свои категории.** Новая кнопка **«Категории»** (у мастера, слева в полосе категорий) открывает список: добавляй категории с названием, цветом и значком, переименовывай и перекрашивай встроенные. Категория выбирается в окне правки места. При удалении категории её места переходят в «Метки мастера». Категории попадают в экспорт и импорт. Просили CptWashu и Timo.
+- **Кто здесь живёт.** У каждого места новое поле «Кто здесь живёт или бывает». Такие места получают белое кольцо, всегда видимое название и плашку с именами; если имя совпало с актёром мира, рядом встаёт портрет. Подходит для домов игроков и важных NPC. Просил Timo.
+- **Метки банд.** Кнопка **«Метки банд»** (у мастера): клик по карте ставит логотип из твоей картинки или надпись с названием, если картинки нет. Размер, прозрачность, цвет, скрытие от игроков. Игроки включают и выключают слой кнопкой «Банды». Логотипы в модуль не входят. Просил Timo.
+- **Рядом.** Кнопка **«Рядом»** прячет всё, что дальше выбранного радиуса (0,5–15 км) от твоей метки «Я здесь», а если её нет - от «Мы здесь». Места с активными заказами, дома, заказы и остановки NCART остаются всегда. Каждый игрок включает у себя. Просил(а) It'sSoClover.
+- **Исправлено: «NCART: FilePicker not found»** на Foundry v12. Проводник файлов искался не там, и папка с картинками линий не читалась. Та же правка чинит выбор картинки места и импорт раздаток терминала из папки. Спасибо Literally Me и Schism.
+- Полоса категорий прокручивается колесом мыши, если не помещается.
+
 ## 0.28.0 — community requests
 
 - **NCART stops and rides.** In the NCART box the GM creates a line (name and colour) and clicks along it on the map: every click is a stop, a click on an existing stop makes a transfer, right click removes the last one. Stops show on the map; click one, pick a destination and press "The crew rides" or "I ride": time passes (wait, stops and transfers are counted) and the marker moves. Train speed and "Players see the stops" are in the same box. Line images are not required for this.
