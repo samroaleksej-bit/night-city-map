@@ -5,6 +5,7 @@
  * The screen itself is assets/terminal/terminal.html in an iframe; it asks the module for its data by id.
  */
 import { T, lang } from "./i18n.js";
+import { filePickerClass, browseFiles } from "./fp.js";
 
 const MID = "night-city-map";
 const SOCKET = `module.${MID}`;
@@ -145,7 +146,7 @@ const Manager = {
 /* ---------------------------------------------------------------- импорт папки с раздатками */
 
 const IMG_EXT = /\.(png|jpe?g|webp|gif|avif|svg)$/i;
-const FP = () => foundry.applications?.apps?.FilePicker?.implementation ?? globalThis.FilePicker?.implementation ?? globalThis.FilePicker;
+const FP = () => filePickerClass();
 const nameOf = (p) => decodeURIComponent(p.split("/").pop()).replace(/\.[^.]+$/, "").replace(/^\d+[_ .-]*/, "").replace(/_/g, " ");
 
 function pickFolder() {
@@ -164,7 +165,7 @@ async function importFolder(path) {
   if (!path) return;
   path = String(path).replace(/\/+$/, "");
   let res;
-  try { res = await FP().browse("data", path); } catch (e) { console.error(MID, e); return ui.notifications.error(`${T("Не открыть папку:")} ${path}`); }
+  try { res = await browseFiles("data", path); } catch (e) { console.error(MID, e); return ui.notifications.error(`${T("Не открыть папку:")} ${path}`); }
   const files = (res?.files ?? []).slice().sort();
   const list = terms(); let nT = 0, nU = 0;
   for (const f of files) {
