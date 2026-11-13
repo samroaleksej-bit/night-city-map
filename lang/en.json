@@ -36,11 +36,26 @@
       "DensityName": "Night lights density, %",
       "DensityHint": "How many lights the city has at night. Lower it if the map is hard to read at night or you use a large roads image.",
       "P2PName": "Agent: players can message each other",
-      "P2PHint": "Players get a chat picker in the Agent: fixers & GM, the whole crew, or one other player. The GM sees every message. Off: players can only write to the GM."
+      "P2PHint": "Players get a chat picker in the Agent: fixers & GM, the whole crew, or one other player. The GM sees every message. Off: players can only write to the GM.",
+      "RouteColorName": "Route colour",
+      "RouteColorHint": "Colour of your route line on the map. Change it if yellow blends with the streets. The GM's shared route stays pink.",
+      "TravelSecName": "Travel animation, seconds",
+      "TravelSecHint": "How long the marker takes to run along the route. Longer makes the trip easier to follow.",
+      "WhoName": "“Who lives here” badges",
+      "WhoHint": "Show the ring and the name badge on places that have residents. Turn off if you use the field for business owners and the badges get in the way. The names always show in the place panel."
     },
     "Keys": {
       "Agent": "Agent (phone)",
       "Open": "Open the Night City map"
+    },
+    "Colors": {
+      "Yellow": "Yellow",
+      "Cyan": "Cyan",
+      "Green": "Green",
+      "Orange": "Orange",
+      "Violet": "Violet",
+      "Blue": "Blue",
+      "White": "White"
     }
   }
 }

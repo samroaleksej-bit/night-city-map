@@ -1,3 +1,29 @@
+## 0.30.0 — community requests, part three
+
+- **Gang marks can be dragged.** In Gang marks mode drag a mark to move it; a click still opens its settings. Asked by Literally Me.
+- **Walk + NCART.** The route planner gets a fifth option when NCART lines exist: walk to the nearest station, ride, walk to the destination. It tries several stations on each side and is offered only when it beats walking. Asked by Literally Me and Timo.
+- **Route from / to a station.** NCART station panels now have "Route from here" and "Route to here", like places. Asked by Timo.
+- **Bends without a stop.** While placing stops, Shift+click adds a bend: the line turns there, the train does not stop. Asked by Timo.
+- **Loops.** Clicking an existing stop while placing stops adds it to the line, so a line can come back to its own station. This already worked; the hint now says so.
+- **Route colour.** New per-player setting: yellow, cyan, green, orange, violet, blue or white. Asked by Timo.
+- **Travel animation speed.** New per-player setting, 1 to 10 seconds, default 3. The marker also no longer vanishes halfway: the animation used to be cut off as soon as the new position arrived. Asked by Timo.
+- **"Who lives here" badges are optional.** New world setting to turn the ring and badge off; names stay in the place panel. Asked by Foxman.
+- **Hidden button for the GM.** Hides for the GM everything that is hidden from players, to see the map as they do. Asked by Timo.
+- **Night lights density** now goes down to 1% (was 10%), and harbour lights follow it too. Asked by Aegaeon.
+
+## 0.30.0 — по просьбам сообщества, часть третья
+
+- **Метки банд перетаскиваются.** В режиме «Метки банд» тащи метку, чтобы сдвинуть; клик по-прежнему открывает настройки. Просил Literally Me.
+- **Пешком + NCART.** В планировщике маршрута появляется пятый вариант, если есть линии NCART: дойти до ближайшей станции, проехать, дойти до цели. Перебирает несколько станций с каждой стороны и предлагается, только когда быстрее, чем пешком. Просили Literally Me и Timo.
+- **Маршрут от станции и до станции.** В панели станции NCART есть «Маршрут отсюда» и «Маршрут сюда», как у мест. Просил Timo.
+- **Изгибы без остановки.** При расстановке остановок Shift+клик ставит изгиб: линия поворачивает, поезд не останавливается. Просил Timo.
+- **Кольца.** Клик по готовой остановке при расстановке добавляет её в линию, так что линия может вернуться на свою станцию. Это работало и раньше, теперь об этом сказано в подсказке.
+- **Цвет маршрута.** Новая личная настройка: жёлтый, голубой, зелёный, оранжевый, фиолетовый, синий или белый. Просил Timo.
+- **Скорость анимации поездки.** Новая личная настройка, от 1 до 10 секунд, по умолчанию 3. Метка больше не пропадает на полпути: раньше анимация обрывалась, как только приходило новое положение. Просил Timo.
+- **Плашки «кто здесь живёт» отключаются.** Новая настройка мира убирает кольцо и плашку; имена остаются в панели места. Просил Foxman.
+- **Кнопка «Скрытое» у мастера.** Прячет у мастера всё, что скрыто от игроков, чтобы видеть карту их глазами. Просил Timo.
+- **Плотность ночных огней** теперь опускается до 1% (было 10%), огни гавани тоже ей подчиняются. Просил Aegaeon.
+
 ## 0.29.1 — category bar wraps
 
 - The category bar no longer scrolls sideways: buttons that do not fit wrap onto a second row, so nothing hides off-screen. The place and gig panels move down with it.

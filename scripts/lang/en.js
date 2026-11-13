@@ -1404,4 +1404,11 @@ export default {
  "Кто здесь живёт или бывает (через запятую)": "Who lives or hangs out here (comma separated)",
  "Ви, Джеки": "V, Jackie",
  "Метки банд": "Gang marks",
+ "Показывать или прятать у себя то, что скрыто от игроков": "Show or hide for yourself what is hidden from players",
+ "Скрытое": "Hidden",
+ "Банды: клик по карте ставит метку, клик по готовой открывает настройки, перетаскивание двигает её.": "Gangs: click the map to place a mark, click a mark to edit it, drag a mark to move it.",
+ "кликай по карте вдоль линии — каждый клик ставит остановку. Клик по готовой остановке — пересадка или замыкание кольца. Shift+клик — изгиб без остановки. Правый клик — убрать последнюю.": "click along the line: each click places a stop. Click an existing stop for a transfer or to close a loop. Shift+click adds a bend without a stop. Right click removes the last one.",
+ "Пешком + NCART": "Walk + NCART",
+ "Пешком до станции": "Walk to station",
+ "дальше пешком": "then walk",
 };
