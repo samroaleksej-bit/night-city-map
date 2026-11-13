@@ -47,10 +47,10 @@
 #ncm .ncm-world.ncm-anim { transition: transform .45s cubic-bezier(.2,.8,.3,1); }
 #ncm .ncm-img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; border: none; user-select: none; }
 #ncm .ncm-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-#ncm .ncm-rt { fill: none; stroke: var(--y); stroke-width: 6; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 12 8; }
+#ncm .ncm-rt { fill: none; stroke: var(--rt, var(--y)); stroke-width: 6; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 12 8; }
 #ncm .ncm-rt-shared { stroke: var(--m); }
-#ncm [class^="ncm-rt-pt"], #ncm [class*=" ncm-rt-pt"] { fill: #111; stroke: var(--y); stroke-width: 2; vector-effect: non-scaling-stroke; }
-#ncm .ncm-rt-pt.start { fill: var(--c); } #ncm .ncm-rt-pt.end { fill: var(--y); }
+#ncm [class^="ncm-rt-pt"], #ncm [class*=" ncm-rt-pt"] { fill: #111; stroke: var(--rt, var(--y)); stroke-width: 2; vector-effect: non-scaling-stroke; }
+#ncm .ncm-rt-pt.start { fill: var(--c); } #ncm .ncm-rt-pt.end { fill: var(--rt, var(--y)); }
 @keyframes ncm-dash { to { stroke-dashoffset: -20; } }
 
 /* районы */
@@ -445,7 +445,7 @@
 #ncm .ncm-rt { stroke-width: 7; filter: drop-shadow(0 0 3px rgba(0,0,0,.9)); }
 #ncm .ncm-rt-glow { fill: none; stroke: rgba(5,5,12,.85); stroke-width: 13; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
 #ncm .ncm-rt-shared-glow { stroke: rgba(5,5,12,.6); }
-#ncm .ncm-rt-rubber { stroke: var(--y); stroke-width: 3; stroke-dasharray: 4 6; vector-effect: non-scaling-stroke; opacity: .85; pointer-events: none; }
+#ncm .ncm-rt-rubber { stroke: var(--rt, var(--y)); stroke-width: 3; stroke-dasharray: 4 6; vector-effect: non-scaling-stroke; opacity: .85; pointer-events: none; }
 #ncm .ncm-enc-row { display: flex; gap: 6px; }
 #ncm .ncm-enc-row .ncm-enc-roll { flex: 1; }
 #ncm .ncm-enc-own { flex: 0 0 auto; width: 40px; }
@@ -667,3 +667,7 @@
 .ncm-dialog .ncm-icons input { position: absolute; opacity: 0; pointer-events: none; }
 .ncm-dialog .ncm-icons label:has(input:checked) { background: #fcee0a; color: #000; border-color: #000; }
 .ncm-dialog .ncm-form input[type=color] { height: 30px; padding: 0 2px; }
+
+/* ---- 0.30: метки банд таскаются, изгибы линий NCART ---- */
+#ncm.ncm-turfmode .ncm-turf-i { cursor: grab; touch-action: none; }
+#ncm .ncm-ncvia { position: absolute; width: 8px; height: 8px; transform: translate(-50%, -50%) scale(var(--inv, 1)); border-radius: 50%; background: #0a0a12; border: 2px solid var(--c); pointer-events: none; }

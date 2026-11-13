@@ -53,6 +53,7 @@ function syncCats() {
 }
 /** Категория точки; если её удалили или она пришла из чужого файла — «Метки мастера». */
 const catKey = (p) => CATS[p.cat] ? p.cat : "custom";
+const travelMs = () => { try { return Math.min(10, Math.max(1, Number(game.settings.get(MID, "travelSec")) || 3)) * 1000; } catch (e) { return 3000; } };
 const DANGER = ["Вода", "Корпоративная", "Умеренная", "Переполненные пригороды", "Боевая зона", "Зона Поражения"];
 const TRANSPORT = [
   { id: "foot", ru: "Пешком", kmh: 5, icon: "fa-person-walking" },
@@ -73,6 +74,17 @@ Hooks.once("init", () => {
   });
   game.settings.register(MID, "state", { scope: "world", config: false, type: Object, default: DEFAULT_STATE, onChange: () => { GEO = null; syncCats(); UI.refresh(); Agent.onState(); } });
   game.settings.register(MID, "near", { scope: "client", config: false, type: Object, default: { on: false, km: 2 } });
+  game.settings.register(MID, "routeColor", {
+    name: "NCM.Settings.RouteColorName", hint: "NCM.Settings.RouteColorHint", scope: "client", config: true, type: String, default: "#fcee0a",
+    choices: { "#fcee0a": "NCM.Colors.Yellow", "#00f0ff": "NCM.Colors.Cyan", "#3dff9a": "NCM.Colors.Green", "#ff9a3c": "NCM.Colors.Orange", "#b06bff": "NCM.Colors.Violet", "#4d8dff": "NCM.Colors.Blue", "#ffffff": "NCM.Colors.White" },
+    onChange: (v) => UI.el?.style.setProperty("--rt", okColor(v, "#fcee0a"))
+  });
+  game.settings.register(MID, "travelSec", {
+    name: "NCM.Settings.TravelSecName", hint: "NCM.Settings.TravelSecHint", scope: "client", config: true, type: Number, default: 3, range: { min: 1, max: 10, step: 0.5 }
+  });
+  game.settings.register(MID, "whoBadges", {
+    name: "NCM.Settings.WhoName", hint: "NCM.Settings.WhoHint", scope: "world", config: true, type: Boolean, default: true, onChange: () => UI.refresh()
+  });
   game.settings.register(MID, "image", {
     name: "NCM.Settings.ImageName", hint: "NCM.Settings.ImageHint",
     scope: "world", config: true, type: String, filePicker: "image", default: `modules/${MID}/assets/night-city-2045.webp`, onChange: () => UI.rebuild()
@@ -90,7 +102,7 @@ Hooks.once("init", () => {
   });
   game.settings.register(MID, "lightsDensity", {
     name: "NCM.Settings.DensityName", hint: "NCM.Settings.DensityHint",
-    scope: "world", config: true, type: Number, default: 100, range: { min: 10, max: 100, step: 5 }, onChange: () => { Lights.pts = null; Lights.sync(true); }
+    scope: "world", config: true, type: Number, default: 100, range: { min: 1, max: 100, step: 1 }, onChange: () => { Lights.pts = null; Lights.sync(true); }
   });
   game.settings.register(MID, "agentP2P", {
     name: "NCM.Settings.P2PName", hint: "NCM.Settings.P2PHint",
@@ -493,8 +505,9 @@ const Net = {
     if (!this.visible()) return "";
     const n = this.get(), col = {};
     for (const l of n.lines) for (const id of l.stops) (col[id] ??= []).push(l.color);
-    return Object.entries(n.st).filter(([id]) => col[id]).map(([id, st]) =>
-      `<button class="ncm-pin ncm-ncst${UI.sel === `n:${id}` ? " sel" : ""}${col[id].length > 1 ? " hub" : ""}" data-ncst="${id}" style="left:${st.x * 100}%;top:${st.y * 100}%;--c:${col[id][0]}" title="NCART · ${esc(st.name)}"><span class="ncm-ncst-dot"></span><span class="ncm-name">${esc(st.name)}</span></button>`).join("");
+    return Object.entries(n.st).filter(([id]) => col[id]).map(([id, st]) => st.via
+      ? (this.edit && isGM() ? `<span class="ncm-ncvia" style="left:${st.x * 100}%;top:${st.y * 100}%;--c:${col[id][0]}"></span>` : "")
+      : `<button class="ncm-pin ncm-ncst${UI.sel === `n:${id}` ? " sel" : ""}${col[id].length > 1 ? " hub" : ""}" data-ncst="${id}" style="left:${st.x * 100}%;top:${st.y * 100}%;--c:${col[id][0]}" title="NCART · ${esc(st.name)}"><span class="ncm-ncst-dot"></span><span class="ncm-name">${esc(st.name)}</span></button>`).join("");
   },
   /** Схема линий по остановкам (тонкие линии под метками). */
   svg() {
@@ -507,7 +520,7 @@ const Net = {
     const n = this.get(), gm = isGM();
     if (!gm && !this.any()) return "";
     return `<div class="ncm-net-h">${T("Остановки и поездки")}</div>
-      ${n.lines.map(l => `<div class="ncm-net-row${this.edit === l.id ? " on" : ""}"><i style="background:${l.color}"></i><span>${esc(l.name)} <small>· ${l.stops.length}</small></span>${gm ? `<button data-act="net-stops" data-id="${l.id}" title="${T("Расставить остановки по клику")}"><i class="fas fa-location-dot"></i></button><button data-act="net-line" data-id="${l.id}" title="${T("Название и цвет")}"><i class="fas fa-pen"></i></button><button data-act="net-del" data-id="${l.id}" title="${T("Удалить линию")}"><i class="fas fa-trash"></i></button>` : ""}</div>`).join("")}
+      ${n.lines.map(l => `<div class="ncm-net-row${this.edit === l.id ? " on" : ""}"><i style="background:${l.color}"></i><span>${esc(l.name)} <small>· ${l.stops.filter(id => !n.st[id]?.via).length}</small></span>${gm ? `<button data-act="net-stops" data-id="${l.id}" title="${T("Расставить остановки по клику")}"><i class="fas fa-location-dot"></i></button><button data-act="net-line" data-id="${l.id}" title="${T("Название и цвет")}"><i class="fas fa-pen"></i></button><button data-act="net-del" data-id="${l.id}" title="${T("Удалить линию")}"><i class="fas fa-trash"></i></button>` : ""}</div>`).join("")}
       ${gm ? `<div class="ncm-seg"><button data-act="net-line"><i class="fas fa-plus"></i> ${T("Линия")}</button></div>
         <label class="ncm-ncart-row"><input type="checkbox" data-net-hide ${n.hide ? "" : "checked"}><span>${T("Игроки видят остановки")}</span></label>
         <label class="ncm-net-kmh">${T("Скорость поезда, км/ч")} <input type="number" data-net-kmh min="10" max="300" step="5" value="${n.kmh}"></label>` : ""}
@@ -537,12 +550,13 @@ const Net = {
   gc(n) { const used = new Set(n.lines.flatMap(l => l.stops)); for (const id of Object.keys(n.st)) if (!used.has(id)) delete n.st[id]; },
   startEdit(id) { this.edit = id; UI.sel = null; UI.mode = "browse"; UI.setMode("ncst"); UI.renderMarkers(); Ncart.renderBox(); },
   /** Клик по карте в режиме расстановки: новая остановка или пересадка на существующей. */
-  async click(f, target) {
+  async click(f, target, ev = null) {
     if (!isGM() || !this.edit) return;
-    const hit = target.closest?.("[data-ncst]")?.dataset.ncst, lid = this.edit;
+    const hit = target.closest?.("[data-ncst]")?.dataset.ncst, lid = this.edit, bend = !!ev?.shiftKey && !hit;
     await this.mut(n => {
       const l = n.lines.find(x => x.id === lid); if (!l) return;
       if (hit) { if (l.stops.at(-1) !== hit) l.stops.push(hit); return; }
+      if (bend) { const id = rid(); n.st[id] = { x: f.x, y: f.y, name: "", via: true }; l.stops.push(id); return; }   // изгиб линии: поезд тут не останавливается
       const base = streetNear(f.x, f.y)?.ru ?? districtAt(f.x, f.y)?.ru ?? T("Станция"), names = new Set(Object.values(n.st).map(q => q.name));
       let name = base, k = 2; while (names.has(name)) name = `${base} ${k++}`;
       const id = rid(); n.st[id] = { x: f.x, y: f.y, name }; l.stops.push(id);
@@ -557,17 +571,33 @@ const Net = {
       let u = null, du = Infinity; for (const [k, d] of dist) if (!done.has(k) && d < du) { u = k; du = d; }
       if (u == null) break; done.add(u);
       const [sid, lid] = u.split("|"), l = n.lines.find(x => x.id === lid), relax = (k, w) => { if (du + w < (dist.get(k) ?? Infinity)) { dist.set(k, du + w); prev.set(k, u); } };
-      l.stops.forEach((id, i) => { if (id !== sid) return; for (const j of [i - 1, i + 1]) { const o = l.stops[j]; if (o && n.st[o] && n.st[sid]) relax(key(o, lid), this.km(n.st[sid], n.st[o]) / n.kmh * 60 + this.DWELL); } });
-      for (const o of n.lines) if (o.id !== lid && o.stops.includes(sid)) relax(key(sid, o.id), this.SWAP);
+      l.stops.forEach((id, i) => { if (id !== sid) return; for (const j of [i - 1, i + 1]) { const o = l.stops[j]; if (o && n.st[o] && n.st[sid]) relax(key(o, lid), this.km(n.st[sid], n.st[o]) / n.kmh * 60 + (n.st[o].via ? 0 : this.DWELL)); } });
+      if (!n.st[sid]?.via) for (const o of n.lines) if (o.id !== lid && o.stops.includes(sid)) relax(key(sid, o.id), this.SWAP);
     }
     const best = {};
-    for (const [k, d] of dist) { const [sid] = k.split("|"); if (sid !== src && (!best[sid] || d < best[sid].min)) best[sid] = { min: d, k }; }
+    for (const [k, d] of dist) { const [sid] = k.split("|"); if (sid !== src && !n.st[sid]?.via && (!best[sid] || d < best[sid].min)) best[sid] = { min: d, k }; }
     for (const [sid, b] of Object.entries(best)) {
       const path = []; let swaps = 0, km = 0;
       for (let k = b.k; k; k = prev.get(k)) { const [a, la] = k.split("|"), p = prev.get(k); if (p && p.split("|")[1] !== la) swaps++; if (path[0] !== a) path.unshift(a); }
       for (let i = 1; i < path.length; i++) km += this.km(n.st[path[i - 1]], n.st[path[i]]);
-      Object.assign(b, { path, swaps, km });
+      Object.assign(b, { path, swaps, km, stops: path.filter(id => !n.st[id]?.via).length - 1 });
     }
+    return best;
+  },
+  /** «Пешком + NCART»: дойти до станции, проехать, дойти до цели. Перебираем по несколько ближайших станций с каждой стороны. */
+  plan(a, b) {
+    if (!this.visible()) return null;
+    const n = this.get(), WALK = 5, DETOUR = 1.3;
+    const sts = Object.entries(n.st).filter(([id, st]) => !st.via && n.lines.some(l => l.stops.includes(id))).map(([id, st]) => ({ id, ...st }));
+    if (sts.length < 2) return null;
+    const walk = (p, q) => this.km(p, q) * DETOUR / WALK * 60, near = (p) => [...sts].sort((x, y) => this.km(p, x) - this.km(p, y)).slice(0, 4);
+    let best = null;
+    for (const A of near(a)) { const go = this.from(A.id);
+      for (const B of near(b)) { const r = go[B.id]; if (!r) continue;
+        const w1 = walk(a, A), w2 = walk(B, b), min = w1 + r.min + w2;
+        if (!best || min < best.min) best = { min, A, B, r, walkKm: (this.km(a, A) + this.km(B, b)) * DETOUR, km: r.km + (this.km(a, A) + this.km(B, b)) * DETOUR }; } }
+    if (!best || best.min >= walk(a, b)) return null;                      // пешком напрямую быстрее — не предлагаем
+    best.pts = [a, ...best.r.path.map(id => n.st[id]), b];
     return best;
   },
   /** Панель остановки: линии и поездка. */
@@ -586,9 +616,10 @@ const Net = {
       <div class="ncm-p-body">
         <div class="ncm-net-chips">${lines.map(l => `<span style="--lc:${l.color}">${esc(l.name)}</span>`).join("")}</div>
         ${dests.length ? `<label class="ncm-net-to">${T("Куда едем")}<select data-net-dest>${dests.map(x => `<option value="${x.id}"${x.id === this.dest ? " selected" : ""}>${esc(x.name)} · ${fmtMin(x.min)}</option>`).join("")}</select></label>
-          ${r ? `<p class="ncm-net-eta"><b>${fmtMin(r.min)}</b> · ${r.km.toFixed(1)} ${T("км")} · ${T("остановок:")} ${r.path.length - 1}${r.swaps ? ` · ${T("пересадок:")} ${r.swaps}` : ""}</p>` : ""}
+          ${r ? `<p class="ncm-net-eta"><b>${fmtMin(r.min)}</b> · ${r.km.toFixed(1)} ${T("км")} · ${T("остановок:")} ${r.stops ?? r.path.length - 1}${r.swaps ? ` · ${T("пересадок:")} ${r.swaps}` : ""}</p>` : ""}
           <div class="ncm-p-acts"><button data-act="net-go" data-who="party" data-id="${sid}"><i class="fas fa-users"></i> ${T("Едет группа")}</button><button data-act="net-go" data-who="me" data-id="${sid}"><i class="fas fa-user"></i> ${T("Еду я")}</button></div>
           <p class="ncm-muted">${T("Время пройдёт, метка переедет на станцию назначения.")}</p>` : `<p class="ncm-muted">${T("С этой станции пока некуда ехать.")}</p>`}
+        <div class="ncm-p-acts"><button data-act="route-st-from" data-id="${sid}"><i class="fas fa-play"></i> ${T("Маршрут отсюда")}</button><button data-act="route-st" data-id="${sid}"><i class="fas fa-flag-checkered"></i> ${T("Маршрут сюда")}</button></div>
         ${isGM() ? `<div class="ncm-p-acts"><button data-act="net-st-name" data-id="${sid}"><i class="fas fa-pen"></i> ${T("Переименовать")}</button><button class="danger" data-act="net-st-del" data-id="${sid}"><i class="fas fa-trash"></i> ${T("Убрать станцию")}</button></div>` : ""}
       </div>`;
     panel.querySelector("[data-net-dest]")?.addEventListener("change", (e) => { this.dest = e.target.value; this.panel(panel, sid); });
@@ -597,7 +628,7 @@ const Net = {
     const n = this.get(), r = this.dest && this.from(sid)[this.dest], end = n.st[this.dest]; if (!r || !end) return;
     UI.animateTravel(r.path.map(id => n.st[id]));
     await act("travel", { x: end.x, y: end.y, min: r.min, who: who === "me" ? game.user.id : "party", mode: "NCART", to: end.name, km: r.km });
-    setTimeout(() => UI.select(`n:${this.dest}`), 1300);
+    setTimeout(() => UI.select(`n:${this.dest}`), travelMs() + 100);
   },
   async rename(sid) {
     const st = this.get().st[sid]; if (!st) return;
@@ -624,7 +655,7 @@ const Lights = {
   build() {
     const { w, h, cell } = GRID; if (!cell) return null;
     let k100 = 100; try { k100 = Number(game.settings.get(MID, "lightsDensity")) || 100; } catch (e) { /* */ }
-    const keep = Math.max(0.05, Math.min(1, k100 / 100));
+    const keep = Math.max(0.01, Math.min(1, k100 / 100));
     const key = `${w}x${h}:${GRID.key}:${dists().length}:${k100}`;
     if (this.pts && this.key === key) return this.pts;
     const R = this.rand(2045), R2 = this.rand(777), pts = [], distOrder = {};
@@ -648,7 +679,7 @@ const Lights = {
       pts.push({ x: nx, y: ny, col, sz, flick: col === "fire" || R() < .04, t: (distOrder[d?.id] ?? R()) * .75 + R() * .25 });
     }
     // огни кораблей и причалов: вода рядом с сушей
-    for (let i = 0; i < 2500; i++) {
+    for (let i = 0; i < Math.round(2500 * keep); i++) {
       const x = Math.floor(R() * w), y = Math.floor(R() * h); if (cell[y * w + x] !== 0) continue;
       let shore = false; for (let k = 1; k <= 6 && !shore; k++) shore = cell[y * w + Math.min(w - 1, x + k)] || cell[y * w + Math.max(0, x - k)] || cell[Math.min(h - 1, y + k) * w + x] || cell[Math.max(0, y - k) * w + x];
       if (shore && R() < .5) pts.push({ x: x / (w - 1), y: y / (h - 1), col: R() < .5 ? "red" : "white", sz: 1, flick: R() < .3, t: R() });
@@ -896,6 +927,7 @@ const UI = {
     return `<button data-act="near" class="ncm-near${near.on ? " on" : ""}" style="--c:#fcee0a" title="${T("Показывать только то, что рядом с вашей меткой, места с активными заказами и дома персонажей")}"><i class="fas fa-location-crosshairs"></i>${T("Рядом")}</button>
         ${near.on ? `<label class="ncm-near-r" title="${T("Радиус")}"><input type="range" min="0.5" max="15" step="0.5" value="${near.km}"><b>${near.km} ${T("км")}</b></label>` : ""}
         ${isGM() ? `<button data-act="cats" style="--c:#9aa0b5" title="${T("Категории: свои, названия, цвета и значки")}"><i class="fas fa-gear"></i>${T("Категории")}</button>
+        <button data-act="secret" class="${this.hideSecret ? "" : "on"}" style="--c:#9aa0b5" title="${T("Показывать или прятать у себя то, что скрыто от игроков")}"><i class="fas ${this.hideSecret ? "fa-eye-slash" : "fa-eye"}"></i>${T("Скрытое")}</button>
         <button data-act="mode-turf" class="${this.mode === "turf" ? "on" : ""}" style="--c:#ff9f43" title="${T("Метки банд: логотип или надпись поверх района")}"><i class="fas fa-spray-can"></i>${T("Метки банд")}</button>` : ""}<span class="ncm-cats-gap"></span>`
       + Object.entries(CATS).map(([k, c]) => `<button data-cat="${k}" class="${this.filter.has(k) ? "on" : ""}" style="--c:${c.color}"><i class="fas ${c.icon}"></i>${c.ru}</button>`).join("")
       + (turf ? `<button data-cat="turf" class="${this.filter.has("turf") ? "on" : ""}" style="--c:#ff9f43" title="${T("Метки банд и группировок поверх карты")}"><i class="fas fa-spray-can"></i>${T("Банды")}</button>` : "");
@@ -951,6 +983,7 @@ const UI = {
   build(fromRect = null) {
     this.syncCats();
     const el = document.createElement("div");
+    try { el.style.setProperty("--rt", okColor(game.settings.get(MID, "routeColor"), "#fcee0a")); } catch (e) { /* */ }
     el.id = ROOT;
     el.innerHTML = `
       <header class="ncm-top">
@@ -1123,15 +1156,16 @@ const UI = {
     const near = this.nearCfg(), org = near.on && !q ? this.nearOrigin(s) : null, nearKm = this.nearKm ?? near.km, wkm = Number(game.settings.get(MID, "widthKm")) || 1;
     const inNear = (p) => !org || p.who || qByPoi[p.id] || this.sel === p.id || Math.hypot(p.x - org.x, (p.y - org.y) * aspect) * wkm <= nearKm;
     const ring = org ? `<div class="ncm-nearring" style="left:${org.x * 100}%;top:${org.y * 100}%;width:${(2 * nearKm / wkm) * 100}%"></div>` : "";
-    const html = allPois().filter(p => this.filter.has(catKey(p)) && inNear(p)).map(p => {
+    const whoOn = (() => { try { return game.settings.get(MID, "whoBadges") !== false; } catch (e) { return true; } })();
+    const html = allPois().filter(p => this.filter.has(catKey(p)) && inNear(p) && !(this.hideSecret && p.hidden)).map(p => {
       const c = p.shop ? { color: CATALOG[SHOP_TYPES[p.type]?.cats[0]]?.color ?? CATS.shop.color, icon: p.type === "night" ? "fa-moon" : p.type === "ripper" ? "fa-robot" : CATALOG[SHOP_TYPES[p.type]?.cats[0]]?.icon ?? "fa-cart-shopping" } : (CATS[p.cat] ?? CATS.custom);
       const hit = !q || `${p.name} ${p.en ?? ""} ${p.desc ?? ""} ${p.n ?? ""}`.toLowerCase().includes(q);
       const qs = qByPoi[p.id];
-      return `<button class="ncm-pin${this.sel === p.id ? " sel" : ""}${hit ? "" : " dim"}${p.hidden ? " secret" : ""}${qs ? " has-q" : ""}${p.who ? " home" : ""}${s.visited.includes(p.id) ? " visited" : ""}"
+      return `<button class="ncm-pin${this.sel === p.id ? " sel" : ""}${hit ? "" : " dim"}${p.hidden ? " secret" : ""}${qs ? " has-q" : ""}${p.who && whoOn ? " home" : ""}${s.visited.includes(p.id) ? " visited" : ""}"
         data-poi="${p.id}" style="left:${p.x * 100}%;top:${p.y * 100}%;--c:${c.color}" title="${esc(p.name)}">
         <span class="ncm-dot${p.shop ? " shop" : p.market ? " market" : ""}">${p.n ?? `<i class="fas ${c.icon}"></i>`}</span>
         ${qs ? `<span class="ncm-qmark">!</span>` : ""}
-        ${p.who ? whoBadge(p.who) : ""}
+        ${p.who && whoOn ? whoBadge(p.who) : ""}
         <span class="ncm-name">${esc(p.name)}</span></button>`;
     }).join("");
     const party = s.party ? `<div class="ncm-party" style="left:${s.party.x * 100}%;top:${s.party.y * 100}%"><span></span><b>${T("МЫ ЗДЕСЬ")}</b></div>` : "";
@@ -1148,7 +1182,7 @@ const UI = {
   /** Метки банд: картинка мастера или надпись поверх района. Кликаются только в режиме «Банды». */
   renderTurf(s = state()) {
     const box = this.el?.querySelector(".ncm-turf"); if (!box) return;
-    const list = this.filter.has("turf") || this.mode === "turf" ? (s.turf ?? []).filter(t => isGM() || !t.hidden) : [];
+    const list = this.filter.has("turf") || this.mode === "turf" ? (s.turf ?? []).filter(t => (isGM() && !this.hideSecret) || !t.hidden) : [];
     box.innerHTML = list.map(t => {
       const w = Math.min(60, Math.max(2, Number(t.size) || 12)), op = Math.min(1, Math.max(0.1, (Number(t.op) || 60) / 100)), col = okColor(t.color, "#ff2a6d");
       const inner = t.img ? `<img src="${esc(t.img)}" alt="" draggable="false">`
@@ -1183,8 +1217,8 @@ const UI = {
   renderHint() {
     const h = this.el.querySelector(".ncm-hint");
     const msg = { route: T("Маршрут: кликайте по карте или точкам — каждый клик добавляет поворот. Тяните карту мышью, чтобы сдвинуть. Правый клик — убрать последнюю точку."),
-      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), shop: T("Кликните по карте, где поставить магазин. Район и наценка возьмутся по месту."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint(), turf: T("Банды: клик по карте ставит метку, клик по готовой метке открывает её настройки."),
-      ncst: `NCART «${esc(Net.get().lines.find(l => l.id === Net.edit)?.name ?? "")}»: ${T("кликай по карте вдоль линии — каждый клик ставит остановку. Клик по чужой остановке — пересадка. Правый клик — убрать последнюю.")}` }[this.mode];
+      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), shop: T("Кликните по карте, где поставить магазин. Район и наценка возьмутся по месту."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint(), turf: T("Банды: клик по карте ставит метку, клик по готовой открывает настройки, перетаскивание двигает её."),
+      ncst: `NCART «${esc(Net.get().lines.find(l => l.id === Net.edit)?.name ?? "")}»: ${T("кликай по карте вдоль линии — каждый клик ставит остановку. Клик по готовой остановке — пересадка или замыкание кольца. Shift+клик — изгиб без остановки. Правый клик — убрать последнюю.")}` }[this.mode];
     const st = state();
     const clr = this.mode === "party" && st.party ? `<button data-act="party-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>`
       : this.mode === "me" && st.players?.[game.user.id] ? `<button data-act="me-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>` : "";
@@ -1360,7 +1394,7 @@ const UI = {
         <div class="ncm-stats"><div><b>${st.road.toFixed(1)}</b><span>${T("км в пути")}</span></div><div><b>${routeStats(pts).dist.toFixed(1)}</b><span>${T("км по прямой")}</span></div><div><b>${pts.length}</b><span>${T("точек")}</span></div></div>
         ${st.hot > 0.05 ? `<div class="ncm-warn hot"><i class="fas fa-radiation"></i> ${T("Через Зону Поражения:")} ${st.hot.toFixed(1)} ${T("км")}</div>` : ""}
         ${st.combat > 0.05 ? `<div class="ncm-warn combat"><i class="fas fa-triangle-exclamation"></i> ${T("Через Боевую зону:")} ${st.combat.toFixed(1)} ${T("км — возможна встреча с бандой")}</div>` : ""}
-        <div class="ncm-eta">${TRANSPORT.map(t => `<button data-act="travel" data-t="${t.id}" title="${T("Проехать: время пройдёт, метка переместится в конец маршрута")}"><i class="fas ${t.icon}"></i><span>${t.ru}</span><b>${fmtTime((t.id === "av" ? st.dist : st.road) / t.kmh)}</b><em>▶</em></button>`).join("")}</div>
+        <div class="ncm-eta">${TRANSPORT.map(t => `<button data-act="travel" data-t="${t.id}" title="${T("Проехать: время пройдёт, метка переместится в конец маршрута")}"><i class="fas ${t.icon}"></i><span>${t.ru}</span><b>${fmtTime((t.id === "av" ? st.dist : st.road) / t.kmh)}</b><em>▶</em></button>`).join("")}${(() => { const pl = Net.plan(pts[0], pts.at(-1)); return pl ? `<button data-act="travel" data-t="ncart" title="${T("Пешком до станции")} «${esc(pl.A.name)}», NCART ${T("до")} «${esc(pl.B.name)}», ${T("дальше пешком")}"><i class="fas fa-train-subway"></i><span>${T("Пешком + NCART")}</span><b>${fmtTime(pl.min / 60)}</b><em>▶</em></button>` : ""; })()}</div>
         <div class="ncm-who">${T("Кто едет:")}
           <label><input type="radio" name="ncm-who" value="party" ${this.who !== "me" ? "checked" : ""}> ${T("вся группа")}</label>
           <label><input type="radio" name="ncm-who" value="me" ${this.who === "me" ? "checked" : ""}> ${T("только я")}</label>
@@ -1669,6 +1703,8 @@ const UI = {
       if (gl) { this.gdrag = { el: gl, dist: gl.dataset.dist, street: gl.dataset.street, x: ev.clientX, y: ev.clientY, f0: this.toFrac(ev), moved: false }; vp.setPointerCapture(ev.pointerId); return; }
       if (ev.button > 2 || ev.target.closest("button:not(.ncm-pin), .ncm-hint, .ncm-dist")) return;
       if (ev.button === 1) ev.preventDefault();
+      const dragTurf = this.mode === "turf" && ev.button === 0 && isGM() && ev.target.closest("[data-turf]");
+      if (dragTurf) { this.tdrag = { id: dragTurf.dataset.turf, el: dragTurf, x: ev.clientX, y: ev.clientY, moved: false }; vp.setPointerCapture(ev.pointerId); return; }
       const dragPin = this.mode === "arrange" && ev.button === 0 && isGM() && ev.target.closest(".ncm-pin[data-poi]");
       if (dragPin) { this.pdrag = { id: dragPin.dataset.poi, el: dragPin, x: ev.clientX, y: ev.clientY, moved: false }; vp.setPointerCapture(ev.pointerId); return; }
       if (this.mode === "roads" && ev.button === 0 && isGM()) {
@@ -1683,6 +1719,8 @@ const UI = {
       if (this.gdrag) { const gd = this.gdrag; if (Math.abs(ev.clientX - gd.x) + Math.abs(ev.clientY - gd.y) > 3) gd.moved = true;
         if (gd.moved) { const f = this.toFrac(ev); gd.f = f; const { w, h } = this.size(), r = this.world.getBoundingClientRect();
           gd.el.style.translate = `${(f.x - gd.f0.x) * r.width / this.view.s}px ${(f.y - gd.f0.y) * r.height / this.view.s}px`; gd.el.classList.add("dragging"); } return; }
+      if (this.tdrag) { const td = this.tdrag; if (Math.abs(ev.clientX - td.x) + Math.abs(ev.clientY - td.y) > 3) td.moved = true;
+        if (td.moved) { const f = this.toFrac(ev); td.f = f; td.el.style.left = `${f.x * 100}%`; td.el.style.top = `${f.y * 100}%`; } return; }
       if (this.pdrag) { const pd = this.pdrag; if (Math.abs(ev.clientX - pd.x) + Math.abs(ev.clientY - pd.y) > 3) pd.moved = true;
         if (pd.moved) { const f = this.toFrac(ev); pd.f = f; pd.el.style.left = `${f.x * 100}%`; pd.el.style.top = `${f.y * 100}%`; pd.el.classList.add("dragging"); } return; }
       if (this.stroke) { const f = this.toFrac(ev), l = this.stroke.p.at(-1); if (Math.hypot(f.x - l[0], f.y - l[1]) > 0.002) { this.stroke.p.push([+f.x.toFixed(5), +f.y.toFixed(5)]); this.drawStroke(); } return; }
@@ -1699,6 +1737,11 @@ const UI = {
           if (gd.dist) { const d = s.geo.districts.find(q => q.id === gd.dist); if (d) { d.x += dx; d.y += dy; } }
           else { const st = s.geo.streets.find(q => q.id === gd.street); if (st) { st.a = [st.a[0] + dx, st.a[1] + dy]; st.b = [st.b[0] + dx, st.b[1] + dy]; } }
         });
+      }
+      if (this.tdrag) { const td = this.tdrag; this.tdrag = null;
+        if (!td.moved || !td.f) return this.onMapClick(ev, td.el);          // без сдвига — это клик: открыть настройки метки
+        const { x, y } = td.f, tid = td.id;
+        return save(s => { const t = (s.turf ?? []).find(q => q.id === tid); if (t) { t.x = x; t.y = y; } });
       }
       if (this.pdrag) { const pd = this.pdrag; this.pdrag = null; pd.el.classList.remove("dragging");
         if (!pd.moved || !pd.f) return this.select(pd.id);
@@ -1763,9 +1806,12 @@ const UI = {
     c.innerHTML = `<i class="fas fa-${n ? "moon" : "sun"}"></i><b>${time}</b><small>${day}</small>${isGM() ? `<span class="ncm-tadd"><button data-act="time" data-m="10">${T("+10м")}</button><button data-act="time" data-m="60">${T("+1ч")}</button><button data-act="time" data-m="480">${T("+8ч")}</button><button data-act="time-set" title="${T("Установить время")}">⏱</button>${scApi() ? `<button data-act="sc-setup" class="${scLinked() ? "on" : ""}" title="${scLinked() ? `Simple Calendar: ${T("«")}${scName()}${T("» подключён. Нажми, чтобы перенастроить")}` : T("Настроить Simple Calendar под Найт-Сити")}">📅</button>` : ""}</span>` : ""}${scLinked() ? `<span class="ncm-sc" title="${T("Время идёт по Simple Calendar")}">SC</span>` : ""}`;
   },
   async travel(tid) {
-    const pts = this.path.length ? this.path : this.route; if (pts.length < 2) return;
-    const t = TRANSPORT.find(x => x.id === tid), st = routeStats(pts, this.path.length > 1);
-    const min = ((t.id === "av" ? st.dist : st.road) / t.kmh) * 60;
+    let pts = this.path.length ? this.path : this.route; if (pts.length < 2) return;
+    let t = TRANSPORT.find(x => x.id === tid), st = routeStats(pts, this.path.length > 1), min;
+    if (tid === "ncart") {
+      const pl = Net.plan(this.route[0], this.route.at(-1)); if (!pl) return;
+      pts = pl.pts; min = pl.min; st = { ...st, road: pl.km }; t = { id: "ncart", ru: T("Пешком + NCART") };
+    } else min = ((t.id === "av" ? st.dist : st.road) / t.kmh) * 60;
     const end = this.route.at(-1), who = this.who === "me" ? game.user.id : "party";
     const to = end.poi ? poiById(end.poi)?.name : end.gig ? state().quests.find(x => x.id === end.gig)?.title : (streetNear(end.x, end.y)?.ru ?? districtAt(end.x, end.y)?.ru);
     if (isGM() && this.travelEnc) await this.rollRoute();
@@ -1773,14 +1819,16 @@ const UI = {
     this.animateTravel(pts);
     await act("travel", { x: end.x, y: end.y, min, who, mode: t.ru, to, km: st.road });
     this.route = [{ ...end }]; this.path = [];
-    setTimeout(() => { this.renderSvg(); this.renderPanel(); }, 1300);
+    setTimeout(() => { this.renderSvg(); this.renderPanel(); }, travelMs() + 100);
   },
   animateTravel(pts) {
-    const layer = this.el.querySelector(".ncm-markers"), dot = document.createElement("div");
+    // Бегунок живёт рядом со слоем меток, а не в нём: слой перерисовывается, как только придёт новое положение, и стирал анимацию
+    const layer = this.el.querySelector(".ncm-markers").parentElement, dot = document.createElement("div");
+    layer.querySelectorAll(":scope > .ncm-runner").forEach(e => e.remove());
     dot.className = "ncm-runner"; layer.appendChild(dot);
     const segs = []; let L = 0;
     for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y); segs.push([pts[i - 1], pts[i], L, l]); L += l; }
-    const t0 = performance.now(), dur = 1200;
+    const t0 = performance.now(), dur = travelMs();
     const step = (now) => {
       const k = Math.min(1, (now - t0) / dur), at = k * L;
       const sg = segs.find(g => at <= g[2] + g[3]) ?? segs.at(-1), u = sg[3] ? (at - sg[2]) / sg[3] : 1;
@@ -1815,7 +1863,7 @@ const UI = {
     if (pin?.dataset.gig && this.mode !== "route") { /* обработано ниже */ }
     const f = this.toFrac(ev);
     if (this.mode === "geo") { if (isGM() && geoOn()) return this.geoClick(f, target); return; }
-    if (this.mode === "ncst") return Net.click(f, target);
+    if (this.mode === "ncst") return Net.click(f, target, ev);
     if (this.mode === "turf") {
       if (!isGM()) return;
       const id = target.closest("[data-turf]")?.dataset.turf, cur = id ? (state().turf ?? []).find(t => t.id === id) : null;
@@ -1887,6 +1935,17 @@ const UI = {
         this.syncCats(); return this.renderMarkers();
       }
       case "cats": return this.renderCatsPanel();
+      case "secret": this.hideSecret = !this.hideSecret; this.syncCats(); return this.renderMarkers();
+      case "route-st": case "route-st-from": {
+        const st = Net.get().st[id]; if (!st) return;
+        const pt = { x: st.x, y: st.y, name: st.name }, party = state().players?.[game.user.id] ?? state().party;
+        this.sel = null; this.mode = "browse";
+        if (b.dataset.act === "route-st-from") { this.route = [pt]; this.path = []; return this.setMode("route"); }
+        const start = this.route[0] ?? (party ? { ...party } : null);
+        this.route = start ? [start, pt] : [pt];
+        if (!start) return this.setMode("route");
+        return this.recalc();
+      }
       case "mode-turf": return this.setMode("turf");
       case "cat-add": case "cat-edit": {
         const k = b.dataset.act === "cat-edit" ? id : `u${rid()}`, cur = CATS[id] ?? {};
