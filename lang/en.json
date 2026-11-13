@@ -42,7 +42,9 @@
       "TravelSecName": "Travel animation, seconds",
       "TravelSecHint": "How long the marker takes to run along the route. Longer makes the trip easier to follow.",
       "WhoName": "“Who lives here” badges",
-      "WhoHint": "Show the ring and the name badge on places that have residents. Turn off if you use the field for business owners and the badges get in the way. The names always show in the place panel."
+      "WhoHint": "Show the ring and the name badge on places that have residents. Turn off if you use the field for business owners and the badges get in the way. The names always show in the place panel.",
+      "SoloClockName": "Personal trips do not advance the clock",
+      "SoloClockHint": "When players travel with their own “I am here” markers, time does not pass: they are assumed to travel at the same time. Only a trip of the whole party (“We are here”) advances the clock. Travel time is still shown in chat."
     },
     "Keys": {
       "Agent": "Agent (phone)",

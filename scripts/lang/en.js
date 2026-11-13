@@ -1411,4 +1411,6 @@ export default {
  "Пешком + NCART": "Walk + NCART",
  "Пешком до станции": "Walk to station",
  "дальше пешком": "then walk",
+ "Банды: клик по карте ставит метку, клик по готовой открывает настройки, перетаскивание двигает, Shift+колесо меняет размер.": "Gangs: click the map to place a mark, click a mark to edit it, drag to move it, Shift+wheel to resize it.",
+ "Поиск района или улицы": "Search a district or street",
 };

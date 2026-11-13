@@ -54,6 +54,7 @@ function syncCats() {
 /** Категория точки; если её удалили или она пришла из чужого файла — «Метки мастера». */
 const catKey = (p) => CATS[p.cat] ? p.cat : "custom";
 const travelMs = () => { try { return Math.min(10, Math.max(1, Number(game.settings.get(MID, "travelSec")) || 3)) * 1000; } catch (e) { return 3000; } };
+const byName = (a, b) => String(a.ru ?? "").localeCompare(String(b.ru ?? ""), undefined, { sensitivity: "base", numeric: true });
 const DANGER = ["Вода", "Корпоративная", "Умеренная", "Переполненные пригороды", "Боевая зона", "Зона Поражения"];
 const TRANSPORT = [
   { id: "foot", ru: "Пешком", kmh: 5, icon: "fa-person-walking" },
@@ -81,6 +82,9 @@ Hooks.once("init", () => {
   });
   game.settings.register(MID, "travelSec", {
     name: "NCM.Settings.TravelSecName", hint: "NCM.Settings.TravelSecHint", scope: "client", config: true, type: Number, default: 3, range: { min: 1, max: 10, step: 0.5 }
+  });
+  game.settings.register(MID, "soloNoClock", {
+    name: "NCM.Settings.SoloClockName", hint: "NCM.Settings.SoloClockHint", scope: "world", config: true, type: Boolean, default: false
   });
   game.settings.register(MID, "whoBadges", {
     name: "NCM.Settings.WhoName", hint: "NCM.Settings.WhoHint", scope: "world", config: true, type: Boolean, default: true, onChange: () => UI.refresh()
@@ -280,7 +284,9 @@ async function applyOp(op, d, user) {
     }
     case "buy": return gmApproveBuy(d, user);
     case "travel": {
-      await advanceTime(d.min);
+      // Личные поездки игроков идут одновременно: если мастер так решил, часы двигает только поездка всей группы
+      const solo = d.who !== "party" && (() => { try { return game.settings.get(MID, "soloNoClock"); } catch (e) { return false; } })();
+      if (!solo) await advanceTime(d.min);
       await save(s => { if (d.who === "party") s.party = { x: d.x, y: d.y }; else s.players[d.who] = { x: d.x, y: d.y }; });
       return chatTravel(d, name);
     }
@@ -1184,7 +1190,7 @@ const UI = {
     const box = this.el?.querySelector(".ncm-turf"); if (!box) return;
     const list = this.filter.has("turf") || this.mode === "turf" ? (s.turf ?? []).filter(t => (isGM() && !this.hideSecret) || !t.hidden) : [];
     box.innerHTML = list.map(t => {
-      const w = Math.min(60, Math.max(2, Number(t.size) || 12)), op = Math.min(1, Math.max(0.1, (Number(t.op) || 60) / 100)), col = okColor(t.color, "#ff2a6d");
+      const w = turfSize(t.size), op = Math.min(1, Math.max(0.1, (Number(t.op) || 60) / 100)), col = okColor(t.color, "#ff2a6d");
       const inner = t.img ? `<img src="${esc(t.img)}" alt="" draggable="false">`
         : `<svg viewBox="0 0 100 26" preserveAspectRatio="xMidYMid meet"><text x="50" y="19" text-anchor="middle" textLength="${Math.min(96, Math.max(20, String(t.name ?? "").length * 9))}" lengthAdjust="spacingAndGlyphs">${esc(t.name ?? "")}</text></svg>`;
       return `<div class="ncm-turf-i${t.hidden ? " secret" : ""}" data-turf="${t.id}" title="${esc(t.name ?? "")}" style="left:${t.x * 100}%;top:${t.y * 100}%;width:${w}%;--o:${op};--c:${col}">${inner}</div>`;
@@ -1217,7 +1223,7 @@ const UI = {
   renderHint() {
     const h = this.el.querySelector(".ncm-hint");
     const msg = { route: T("Маршрут: кликайте по карте или точкам — каждый клик добавляет поворот. Тяните карту мышью, чтобы сдвинуть. Правый клик — убрать последнюю точку."),
-      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), shop: T("Кликните по карте, где поставить магазин. Район и наценка возьмутся по месту."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint(), turf: T("Банды: клик по карте ставит метку, клик по готовой открывает настройки, перетаскивание двигает её."),
+      party: T("Кликните по карте, чтобы поставить метку «Мы здесь»."), me: T("Кликните по карте, чтобы поставить свою метку «Я здесь»."), pin: T("Кликните по карте, чтобы добавить свою точку."), move: T("Кликните туда, куда перенести место."), shop: T("Кликните по карте, где поставить магазин. Район и наценка возьмутся по месту."), arrange: T("Расстановка: перетаскивай места мышью, карту двигай правой кнопкой. Готово — места снова закреплены."), roads: T("Рисуй дороги левой кнопкой мыши, двигай карту правой."), geo: this.geoHint(), turf: T("Банды: клик по карте ставит метку, клик по готовой открывает настройки, перетаскивание двигает, Shift+колесо меняет размер."),
       ncst: `NCART «${esc(Net.get().lines.find(l => l.id === Net.edit)?.name ?? "")}»: ${T("кликай по карте вдоль линии — каждый клик ставит остановку. Клик по готовой остановке — пересадка или замыкание кольца. Shift+клик — изгиб без остановки. Правый клик — убрать последнюю.")}` }[this.mode];
     const st = state();
     const clr = this.mode === "party" && st.party ? `<button data-act="party-clear"><i class="fas fa-eraser"></i> ${T("Убрать метку")}</button>`
@@ -1480,13 +1486,14 @@ const UI = {
         <div class="ncm-seg">${[["district", T("Район")], ["street", T("Улица")]].map(([k, l]) => `<button data-act="geo-tool" data-t="${k}" class="${t === k ? "on" : ""}">${l}</button>`).join("")}</div>
         <div class="ncm-p-acts"><button data-act="geo-copy"><i class="fas fa-copy"></i> ${T("Взять встроенные за основу")}</button>
           <button class="danger" data-act="geo-clear" ${g.districts.length + g.streets.length ? "" : "disabled"}><i class="fas fa-trash"></i> ${T("Очистить")}</button></div>
+        <input type="search" class="ncm-geo-q" placeholder="${T("Поиск района или улицы")}" value="${esc(this.geoQ ?? "")}">
         <h3>${T("Районы")} · ${g.districts.length}</h3>
-        ${g.districts.length ? g.districts.map(d => `<div class="ncm-own"><div><b style="color:${DANGER_COLORS[d.danger] ?? "#fff"}">${esc(d.ru)}</b><small>${DANGER[d.danger] ?? ""}</small></div>
+        ${g.districts.length ? [...g.districts].sort(byName).map(d => `<div class="ncm-own" data-n="${esc(String(d.ru ?? "").toLowerCase())}"><div><b style="color:${DANGER_COLORS[d.danger] ?? "#fff"}">${esc(d.ru)}</b><small>${DANGER[d.danger] ?? ""}</small></div>
           <button data-act="geo-focus" data-x="${d.x}" data-y="${d.y}" title="${T("Показать")}"><i class="fas fa-crosshairs"></i></button>
           <button data-act="geo-edit-d" data-id="${d.id}" title="${T("Править")}"><i class="fas fa-pen"></i></button>
           <button data-act="geo-rm-d" data-id="${d.id}" title="${T("Удалить")}"><i class="fas fa-trash"></i></button></div>`).join("") : `<p class="ncm-muted">${T("Пока нет. Выбери «Район» и кликни по карте.")}</p>`}
         <h3>${T("Улицы")} · ${g.streets.length}</h3>
-        ${g.streets.length ? g.streets.map(st => `<div class="ncm-own"><div><b>${esc(st.ru)}</b>${st.hw ? `<small>${T("трасса")}</small>` : ""}</div>
+        ${g.streets.length ? [...g.streets].sort(byName).map(st => `<div class="ncm-own" data-n="${esc(String(st.ru ?? "").toLowerCase())}"><div><b>${esc(st.ru)}</b>${st.hw ? `<small>${T("трасса")}</small>` : ""}</div>
           <button data-act="geo-focus" data-x="${(st.a[0] + st.b[0]) / 2}" data-y="${(st.a[1] + st.b[1]) / 2}" title="${T("Показать")}"><i class="fas fa-crosshairs"></i></button>
           <button data-act="geo-redraw" data-id="${st.id}" title="${T("Перечертить: два клика по карте")}"><i class="fas fa-pen-ruler"></i></button>
           <button data-act="geo-edit-s" data-id="${st.id}" title="${T("Править")}"><i class="fas fa-pen"></i></button>
@@ -1494,6 +1501,9 @@ const UI = {
         <p class="ncm-muted">${T("Опасность «Боевая зона» и «Зона Поражения» делает территорию вокруг названия района соответствующей зоной. «Вода» — подпись без района.")}</p>` : ""}
         <p class="ncm-muted">${T("Районы и улицы попадают в экспорт карты («Места» → Экспорт).")}</p>
       </div>`;
+    const gq = panel.querySelector(".ncm-geo-q");
+    const gFilter = () => { const q = (this.geoQ ?? "").trim().toLowerCase(); panel.querySelectorAll(".ncm-own[data-n]").forEach(r => { r.style.display = !q || r.dataset.n.includes(q) ? "" : "none"; }); };
+    gq?.addEventListener("input", () => { this.geoQ = gq.value; gFilter(); }); gFilter();
     panel.querySelector("[data-geo-hidest]")?.addEventListener("change", (ev) => { const v = ev.target.checked; save(s => { s.geo = { on: false, districts: [], streets: [], ...(s.geo ?? {}), hideStreets: v }; }); });
     panel.querySelector("[data-geo-show]")?.addEventListener("change", (ev) => { const show = ev.target.checked; save(s => { s.geo.show = show; }); });
     panel.querySelector("[data-geo-on]")?.addEventListener("change", (ev) => {
@@ -1694,7 +1704,15 @@ const UI = {
       const d = dists().find(x => x.ru.toLowerCase().includes(q) || x.en.toLowerCase().includes(q));
       if (p) this.select(p.id, true); else if (d) this.renderDistrict(d.id);
     });
-    vp.addEventListener("wheel", (ev) => { ev.preventDefault(); const r = vp.getBoundingClientRect(); this.zoomAt(ev.deltaY < 0 ? 1.18 : 1 / 1.18, ev.clientX - r.left, ev.clientY - r.top); }, { passive: false });
+    vp.addEventListener("wheel", (ev) => { ev.preventDefault(); const r = vp.getBoundingClientRect();
+      // Shift + колесо над меткой банды в её режиме — размер метки, а не масштаб карты
+      const tEl = this.mode === "turf" && ev.shiftKey && isGM() && ev.target.closest?.("[data-turf]");
+      if (tEl) {
+        const cur = parseFloat(tEl.style.width) || 4, nw = turfSize(cur * ((ev.deltaY || ev.deltaX) < 0 ? 1.12 : 1 / 1.12)), tid = tEl.dataset.turf;
+        tEl.style.width = `${nw}%`;
+        clearTimeout(this.turfT); this.turfT = setTimeout(() => save(st => { const t = (st.turf ?? []).find(q => q.id === tid); if (t) t.size = nw; }), 350);
+        return;
+      } this.zoomAt(ev.deltaY < 0 ? 1.18 : 1 / 1.18, ev.clientX - r.left, ev.clientY - r.top); }, { passive: false });
     vp.addEventListener("pointerdown", (ev) => {
       // Подпись могут перекрывать пины/точки — ищем её под курсором во всём стеке элементов
       const gl = this.mode === "geo" && ev.button === 0 && isGM() && geoOn() && !ev.target.closest(".ncm-hint, .ncm-panel, button:not(.ncm-pin)")
@@ -2615,6 +2633,8 @@ async function importData() {
   ui.notifications.info(T("Импорт готов."));
 }
 
+/** Размер метки банды в % ширины карты. Карта бывает очень большой, поэтому минимум — доли процента. */
+const turfSize = (v) => Math.round(Math.min(60, Math.max(0.2, Number(v) || 4)) * 10) / 10;
 /** Плашка «кто здесь живёт»: имена, а для имён, совпавших с актёрами мира, ещё и портреты. */
 function whoBadge(who) {
   const names = String(who).split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).slice(0, 6);
@@ -2633,13 +2653,13 @@ async function turfDialog(t = null) {
   const d = await formDialog(t ? T("Метка банды") : T("Новая метка банды"), `<form class="ncm-form">
     <label>${T("Название")}<input name="name" value="${esc(t?.name ?? "")}" placeholder="Maelstrom"></label>
     <label>${T("Картинка (логотип, лучше с прозрачным фоном)")}<span class="ncm-fp"><input name="img" value="${esc(t?.img ?? "")}" placeholder="${T("пусто — будет надпись с названием")}"><button type="button" data-fp="img" title="${T("Выбрать файл")}"><i class="fas fa-file-image"></i></button></span></label>
-    <div class="ncm-row"><label>${T("Размер, % ширины карты")}<input type="number" name="size" min="2" max="60" step="1" value="${Number(t?.size) || 12}"></label>
+    <div class="ncm-row"><label>${T("Размер, % ширины карты")}<input type="number" name="size" min="0.2" max="60" step="0.1" value="${turfSize(t?.size ?? 4)}"></label>
     <label>${T("Непрозрачность, %")}<input type="number" name="op" min="10" max="100" step="5" value="${Number(t?.op) || 60}"></label></div>
     <label>${T("Цвет надписи")}<input type="color" name="color" value="${okColor(t?.color, "#ff2a6d")}"></label>
     <label class="ncm-check"><input type="checkbox" name="hidden" ${t?.hidden ? "checked" : ""}> ${T("Скрыть от игроков")}</label>
     ${t ? `<label class="ncm-check"><input type="checkbox" name="del"> ${T("Удалить эту метку")}</label>` : ""}</form>`);
   if (!d) return null;
-  return { name: String(d.name ?? "").trim().slice(0, 40), img: String(d.img ?? "").trim(), size: Math.min(60, Math.max(2, Number(d.size) || 12)), op: Math.min(100, Math.max(10, Number(d.op) || 60)), color: okColor(d.color, "#ff2a6d"), hidden: !!d.hidden, del: !!d.del };
+  return { name: String(d.name ?? "").trim().slice(0, 40), img: String(d.img ?? "").trim(), size: turfSize(d.size), op: Math.min(100, Math.max(10, Number(d.op) || 60)), color: okColor(d.color, "#ff2a6d"), hidden: !!d.hidden, del: !!d.del };
 }
 
 /** Своя точка мастера: категория, описание, картинка для досье, защита от удаления. */
