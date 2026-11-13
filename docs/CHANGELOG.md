@@ -1,3 +1,17 @@
+## 0.30.1 — fixes from feedback
+
+- **Gang marks were huge on big map images.** Size is a share of the map width, and the minimum was 2%, which on a large Atlas image is still enormous when zoomed in. The minimum is now 0.2% in steps of 0.1, new marks start at 4%, and **Shift+wheel over a mark** in Gang marks mode resizes it on the spot. Reported by CptWashu and Literally Me.
+- **Unreadable dropdowns on the default Foundry theme** (white text on a light list, e.g. the NCART destination list). Lists inside the map and the Agent phone are now dark in any theme. Reported by CptWashu.
+- **Districts & streets: search and A–Z order.** A search box filters both lists, and both are sorted by name. Asked by CptWashu.
+- **New world setting "Personal trips do not advance the clock".** With several players travelling to one meeting point, each trip used to push the clock in turn. Turn the setting on and only a trip of the whole party moves time. Noticed by Literally Me.
+
+## 0.30.1 — правки по отзывам
+
+- **Метки банд были огромными на больших картах.** Размер задаётся долей ширины карты, а минимум был 2% - на большой картинке Атласа это всё ещё громадина при приближении. Теперь минимум 0,2% с шагом 0,1, новые метки ставятся на 4%, а **Shift+колесо над меткой** в режиме «Метки банд» меняет размер на месте. Сообщили CptWashu и Literally Me.
+- **Нечитаемые выпадающие списки в стандартной теме Foundry** (белый текст на светлом списке, например станции назначения NCART). Списки внутри карты и телефона Агента теперь тёмные в любой теме. Сообщил CptWashu.
+- **Районы и улицы: поиск и порядок по алфавиту.** Поле поиска фильтрует оба списка, оба отсортированы по названию. Просил CptWashu.
+- **Новая настройка мира «Личные поездки не двигают часы».** Когда несколько игроков ехали к одной точке встречи, каждая поездка двигала часы по очереди. С настройкой время двигает только поездка всей группы. Заметил Literally Me.
+
 ## 0.30.0 — community requests, part three
 
 - **Gang marks can be dragged.** In Gang marks mode drag a mark to move it; a click still opens its settings. Asked by Literally Me.

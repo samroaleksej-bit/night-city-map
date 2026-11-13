@@ -671,3 +671,7 @@
 /* ---- 0.30: метки банд таскаются, изгибы линий NCART ---- */
 #ncm.ncm-turfmode .ncm-turf-i { cursor: grab; touch-action: none; }
 #ncm .ncm-ncvia { position: absolute; width: 8px; height: 8px; transform: translate(-50%, -50%) scale(var(--inv, 1)); border-radius: 50%; background: #0a0a12; border: 2px solid var(--c); pointer-events: none; }
+
+/* ---- 0.30.1: списки в тёмной панели читаются в любой теме Foundry; поиск по районам и улицам ---- */
+#ncm select option, #ncm select optgroup, #ncm-agent select option, #ncm-agent select optgroup { background: #111; color: #f2f2f2; }
+#ncm .ncm-geo-q { width: 100%; height: 30px; margin: 8px 0 2px; padding: 0 8px; background: #111; border: 1px solid rgba(245,230,99,.35); color: #fff; }
