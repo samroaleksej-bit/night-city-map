@@ -1017,11 +1017,16 @@ const UI = {
       const km = Number(ev.target.value) || 2; ev.target.nextElementSibling.textContent = `${km} ${T("км")}`;
       this.nearKm = km; this.renderMarkers();
     });
-    // Категорий теперь может быть много: колесо мыши прокручивает полосу вбок
-    el.querySelector(".ncm-cats").addEventListener("wheel", (ev) => {
-      const nav = ev.currentTarget; if (nav.scrollWidth <= nav.clientWidth) return;
-      ev.preventDefault(); nav.scrollLeft += ev.deltaY || ev.deltaX;
-    }, { passive: false });
+    // Полоса категорий переносится на вторую строку, если не помещается: боковые панели опускаем следом за ней
+    const nav = el.querySelector(".ncm-cats");
+    const fitTop = () => {
+      const host = el.querySelector(".ncm-panel")?.offsetParent ?? el;   // панели позиционируются от него
+      const y = nav.getBoundingClientRect().bottom - host.getBoundingClientRect().top;
+      el.style.setProperty("--ncm-top", `${Math.max(108, Math.round(y) + 12)}px`);
+    };
+    this.catsRO?.disconnect(); this.catsRO = new ResizeObserver(fitTop);
+    for (const n of [nav, nav.previousElementSibling, el]) if (n) this.catsRO.observe(n);   // шапка над полосой тоже может вырасти
+    fitTop();
     el.querySelector(".ncm-cats").addEventListener("change", (ev) => {
       if (ev.target.matches(".ncm-near-r input")) game.settings.set(MID, "near", { on: true, km: Number(ev.target.value) || 2 });
     });

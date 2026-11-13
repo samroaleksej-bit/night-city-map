@@ -1,3 +1,11 @@
+## 0.29.1 — category bar wraps
+
+- The category bar no longer scrolls sideways: buttons that do not fit wrap onto a second row, so nothing hides off-screen. The place and gig panels move down with it.
+
+## 0.29.1 — полоса категорий переносится
+
+- Полоса категорий больше не прокручивается вбок: кнопки, которые не помещаются, уходят на вторую строку, и ничего не прячется за краем. Панели места и заказов опускаются следом.
+
 ## 0.29.0 — community requests, part two
 
 - **Your own categories.** The new **Categories** button (GM, left of the category bar) opens a list: add categories with a name, colour and icon, and rename or recolour the built-in ones. Pick the category in the place edit window. Deleting a category moves its places to "GM Markers". Categories travel with export and import. Asked by CptWashu and Timo.

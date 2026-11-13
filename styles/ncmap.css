@@ -29,7 +29,7 @@
 #ncm .ncm-x:hover { background: var(--m); color: #fff; }
 
 /* категории */
-#ncm .ncm-cats { display: flex; gap: 6px; padding: 8px 16px; overflow-x: auto; background: #0a0a12; border-bottom: 1px solid var(--line); position: relative; z-index: 6; scrollbar-width: none; }
+#ncm .ncm-cats { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 16px; overflow-x: hidden; background: #0a0a12; border-bottom: 1px solid var(--line); position: relative; z-index: 6; }
 #ncm .ncm-cats button { flex: none; display: inline-flex; align-items: center; gap: 6px; width: auto; height: 28px; padding: 0 12px; margin: 0; border: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
   border-radius: 0; background: transparent; color: var(--mut); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .55; }
 #ncm .ncm-cats button i { color: var(--c); }
@@ -90,7 +90,7 @@
 #ncm .ncm-hint button { border-color: var(--y) !important; color: var(--y) !important; height: 28px !important; }
 
 /* панели */
-#ncm .ncm-panel, #ncm .ncm-quests { position: absolute; top: 108px; bottom: 16px; width: 390px; z-index: 6; display: flex; flex-direction: column; background: rgba(8, 8, 15, .95);
+#ncm .ncm-panel, #ncm .ncm-quests { position: absolute; top: var(--ncm-top, 108px); bottom: 16px; width: 390px; z-index: 6; display: flex; flex-direction: column; background: rgba(8, 8, 15, .95);
   border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0,0,0,.7); transition: transform .3s cubic-bezier(.2,.8,.3,1), opacity .25s; opacity: 0; pointer-events: none; }
 #ncm .ncm-panel { right: 16px; transform: translateX(30px); border-top: 3px solid var(--y); }
 #ncm .ncm-quests { left: 70px; transform: translateX(-30px); border-top: 3px solid var(--m); }
