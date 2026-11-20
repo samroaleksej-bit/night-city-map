@@ -1,3 +1,11 @@
+## 0.30.2 — apps inside the Agent phone
+
+- **Other modules can add their own app to the Agent phone.** `game.modules.get("night-city-map").api.registerAgentApp({ id, icon, label, render, bind })` adds a button to the phone's bottom bar; `render()` returns the HTML of the screen and `bind(el)` attaches listeners. `refreshAgentApp(id)` redraws it, `openAgentApp(id)` opens the phone on it. Nothing changes if no module registers an app.
+
+## 0.30.2 — приложения внутри телефона Агента
+
+- **Другие модули могут добавить в телефон Агента своё приложение.** `game.modules.get("night-city-map").api.registerAgentApp({ id, icon, label, render, bind })` добавляет кнопку в нижнюю панель телефона; `render()` возвращает HTML экрана, `bind(el)` вешает обработчики. `refreshAgentApp(id)` перерисовывает, `openAgentApp(id)` открывает телефон сразу на нём. Если ни один модуль ничего не регистрирует, ничего не меняется.
+
 ## 0.30.1 — fixes from feedback
 
 - **Gang marks were huge on big map images.** Size is a share of the map width, and the minimum was 2%, which on a large Atlas image is still enormous when zoomed in. The minimum is now 0.2% in steps of 0.1, new marks start at 4%, and **Shift+wheel over a mark** in Gang marks mode resizes it on the spot. Reported by CptWashu and Literally Me.

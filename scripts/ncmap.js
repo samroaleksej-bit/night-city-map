@@ -2875,7 +2875,13 @@ Hooks.once("ready", () => {
     if (d.action === "dossier") return openDossier(d.id, { remote: true });
     if (d.action === "quest") { const q = state().quests.find(x => x.id === d.id); if (q) questToast(q); }
   });
-  game.modules.get(MID).api = { open: () => UI.open(), close: () => UI.close(), ui: UI, agent: () => agentOn() && Agent.toggle(), call: (o) => Call.start(o ?? {}), ncart: Ncart };
+  game.modules.get(MID).api = { open: () => UI.open(), close: () => UI.close(), ui: UI, agent: () => agentOn() && Agent.toggle(), call: (o) => Call.start(o ?? {}), ncart: Ncart,
+    /** Добавить приложение в телефон Агента: { id, icon, label, render() -> html, bind?(el) }. Повторный id заменяет прежнее. */
+    registerAgentApp: (app) => { if (!app?.id || typeof app.render !== "function") return false; Agent.apps = Agent.apps.filter(a => a.id !== app.id).concat(app); if (Agent.el) Agent.render(); return true; },
+    /** Перерисовать телефон, если открыто приложение с этим id (или любое, если id не задан). */
+    refreshAgentApp: (id) => { if (Agent.el && !Agent.docked && (id ? Agent.tab === id : !!Agent.app())) Agent.render(); },
+    openAgentApp: (id) => agentOn() && Agent.open(id) };
+  Hooks.callAll("nightCityMapAgentReady", game.modules.get(MID).api);
   Agent.seen = new Set(state().messages.map(m => m.id));
   if (agentOn() && game.settings.get(MID, "agentAuto")) setTimeout(() => Agent.open(), 1200);
   // Первый запуск у мастера: город сразу с магазинами и Ночными рынками
@@ -2958,6 +2964,9 @@ async function genGigsDialog() {
 
 const Agent = {
   el: null, tab: "msg", seen: new Set(), unread: 0, chatWith: null, docked: false, busy: false,
+  /** Приложения других модулей: { id, icon, label, render() -> html, bind?(el) }. См. api.registerAgentApp. */
+  apps: [],
+  app() { return this.apps.find(a => a.id === this.tab) ?? null; },
   toggle() { this.el && !this.docked ? this.close() : this.open(); },
   /** Повернуть телефон горизонтально и спрятать — карта раскроется из его экрана. */
   flip() {
@@ -3044,7 +3053,10 @@ const Agent = {
   render() {
     if (!this.el) return;
     const { time } = fmtClock();
-    const body = this.tab === "msg" ? this.renderMsgs() : this.tab === "jobs" ? this.renderJobs() : this.tab === "contacts" ? this.renderContacts() : this.renderMe();
+    const app = this.app();
+    let body;
+    if (app) { try { body = String(app.render() ?? ""); } catch (e) { console.error(`${MID} | agent app "${app.id}"`, e); body = `<div class="ag-empty">${T("Приложение не открылось.")}</div>`; } }
+    else body = this.tab === "msg" ? this.renderMsgs() : this.tab === "jobs" ? this.renderJobs() : this.tab === "contacts" ? this.renderContacts() : this.renderMe();
     const draft = keepDraft(this.el, "[data-ag-text]", "[data-ag-from]");
     this.el.innerHTML = `<div class="ag-phone">
       <div class="ag-top"><span>${time}</span><span class="ag-net">NCNET ▮▮▮▯ 5G</span><button data-ag="mini" title="${T("Свернуть")}">▁</button><button data-ag="close" title="${T("Закрыть")}">✕</button></div>
@@ -3055,8 +3067,11 @@ const Agent = {
         <button data-ag="tab" data-t="contacts" class="${this.tab === "contacts" ? "on" : ""}"><i class="fas fa-address-book"></i>${T("Контакты")}</button>
         <button data-ag="tab" data-t="jobs" class="${this.tab === "jobs" ? "on" : ""}"><i class="fas fa-briefcase"></i>${T("Заказы")}</button>
         <button data-ag="tab" data-t="me" class="${this.tab === "me" ? "on" : ""}"><i class="fas fa-location-dot"></i>${T("Я")}</button>
+        ${this.apps.map(a => `<button data-ag="tab" data-t="${esc(a.id)}" class="${this.tab === a.id ? "on" : ""}"><i class="${esc(a.icon ?? "fas fa-cube")}"></i>${esc(a.label ?? a.id)}</button>`).join("")}
         <button data-ag="map"><i class="fas fa-map"></i>${T("Карта")}</button>
       </nav></div>`;
+    this.el.querySelector(".ag-nav")?.style.setProperty("grid-template-columns", `repeat(${5 + this.apps.length}, 1fr)`);
+    if (app?.bind) { try { app.bind(this.el.querySelector(".ag-body")); } catch (e) { console.error(`${MID} | agent app "${app.id}"`, e); } }
     draft.restore();
     const list = this.el.querySelector(".ag-msgs"); if (list) list.scrollTop = list.scrollHeight;
   },
