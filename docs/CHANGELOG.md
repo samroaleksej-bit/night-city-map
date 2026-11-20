@@ -1,3 +1,11 @@
+## 0.30.3 — the update actually arrives
+
+- **0.30.2 did not install.** The manifest still pointed at the 0.30.1 archive, so Foundry showed an update and downloaded the old files. The link is fixed, and the release build now sets it from the version by itself.
+
+## 0.30.3 — обновление действительно приходит
+
+- **0.30.2 не устанавливалась.** Манифест всё ещё ссылался на архив 0.30.1: Foundry показывал обновление и скачивал старые файлы. Ссылка исправлена, а сборка релиза теперь подставляет её по номеру версии сама.
+
 ## 0.30.2 — apps inside the Agent phone
 
 - **Other modules can add their own app to the Agent phone.** `game.modules.get("night-city-map").api.registerAgentApp({ id, icon, label, render, bind })` adds a button to the phone's bottom bar; `render()` returns the HTML of the screen and `bind(el)` attaches listeners. `refreshAgentApp(id)` redraws it, `openAgentApp(id)` opens the phone on it. Nothing changes if no module registers an app.
