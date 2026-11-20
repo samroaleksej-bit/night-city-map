@@ -245,6 +245,7 @@ export default {
  "Агент (Shift+A)": "Agent (Shift+A)",
  "АГЕНТ · НОВОЕ СООБЩЕНИЕ": "AGENT · NEW MESSAGE",
  "Свернуть": "Minimize",
+ "Приложение не открылось.": "The app failed to open.",
  "Закрыть": "Close",
  "Чаты": "Chats",
  "Я": "Me",
